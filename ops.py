@@ -62,21 +62,6 @@ def embedding_lookup(inputs, voca_size, embedding_dim, visual_dir, scope='Embedd
         return inputs_embed, projector, config
 
 
-def mask_by_index(batch_size, input_len, max_time_step):
-    with tf.variable_scope('Masking') as scope:
-        input_index = tf.range(0, batch_size) * max_time_step + (input_len - 1)
-        lengths_transposed = tf.expand_dims(input_index, 1)
-        lengths_tiled = tf.tile(lengths_transposed, [1, max_time_step])
-        mask_range = tf.range(0, max_time_step)
-        range_row = tf.expand_dims(mask_range, 0)
-        range_tiled = tf.tile(range_row, [batch_size, 1])
-        mask = tf.less_equal(range_tiled, lengths_tiled)
-        weight = tf.select(mask, tf.ones([batch_size, max_time_step]),
-                           tf.zeros([batch_size, max_time_step]))
-        weight = tf.reshape(weight, [-1])
-        return weight
-
-
 def linear(inputs, input_dim, output_dim, dropout_rate=1.0, regularize_rate=0, activation=None, scope='Linear'):
     with tf.variable_scope(scope) as scope:
         inputs = tf.reshape(inputs, [-1, input_dim])
@@ -103,3 +88,4 @@ def variable_summaries(var, name):
         tf.scalar_summary('max/' + name, tf.reduce_max(var))
         tf.scalar_summary('min/' + name, tf.reduce_min(var))
         tf.histogram_summary(name, var)
+

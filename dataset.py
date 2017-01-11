@@ -11,7 +11,7 @@ from random import shuffle
 from utils import *
 
 batch_size = 1000
-ethnicity_dir = './data'
+data_dir = './data'
 train_ratio = 0.8
 valid_ratio = 0.1
 test_ratio = 0.1
@@ -25,7 +25,7 @@ def one_hot(index, length):
     return vector
 
 
-def get_ethnicity_data(data_dir):
+def get_name_data(data_dir):
     for root, dir, files in os.walk(data_dir):
         inputs = []
         inputs_length = []
@@ -33,7 +33,6 @@ def get_ethnicity_data(data_dir):
         char_dict = {}
         country_dict = {}
         name_dict = {}
-        ethnicity_dict = {}
         name_max_len = 0
         collision_cnt = 0
 
@@ -49,19 +48,11 @@ def get_ethnicity_data(data_dir):
                 for k, line in enumerate(data):
                     file_len = k + 1
                     country_dict[int(line[:-1].split('\t')[1])] = line.split('\t')[0]
-            elif file_name == 'nationality_to_ethnicity.txt':
-                for k, line in enumerate(data):
-                    file_len = k + 1
-                    ethnicity_dict[int(line[:-1].split('\t')[0])] = int(line[:-1].split('\t')[1])
             elif file_name == 'parsed.txt':
                 for k, line in enumerate(data):
                     line = line[:-1]
                     name = [one_hot(int(k), 48) for k in line.split(']')[0][1:].split(', ')]
                     nationality = int(line.split(']')[1].split(' ')[1])
-                    if nationality in ethnicity_dict:
-                        ethnicity = [0] * (len(name)-1) + [ethnicity_dict[nationality]] + [0] * (50-len(name))
-                    else:
-                        continue
                     name_length = len(name)
 
                     if name_max_len < len(name):
@@ -79,7 +70,7 @@ def get_ethnicity_data(data_dir):
                         name_dict[name_string] = 1
 
                     inputs.append(name)
-                    labels.append(ethnicity)
+                    labels.append(nationality)
                     inputs_length.append(name_length)
                     file_len = k + 1
             else:
@@ -100,7 +91,7 @@ def get_ethnicity_data(data_dir):
     return np.array(inputs), np.array(labels), np.array(inputs_length), char_dict, country_dict
 
 
-total_input, total_label, total_length, char_dict, country_dict = get_ethnicity_data(ethnicity_dir)
+total_input, total_label, total_length, char_dict, country_dict = get_name_data(data_dir)
 data_size = len(total_input)
 train_input = total_input[:int(data_size * train_ratio)]
 train_label = total_label[:int(data_size * train_ratio)]

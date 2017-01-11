@@ -4,12 +4,12 @@ import os
 from ops import *
 
 
-class RNN(object):
+class GAN(object):
     def __init__(self, sess,
-                 input_dim, output_dim, max_time_step, min_grad, max_grad,
-                 cell_dim, cell_layer_num, cell_keep_prob, embed_dim,
-                 hidden_dim, output_dr, output_rr,
-                 scope="Ethnicity", lr=1e-1):
+                 d_input_dim, d_output_dim, max_time_step, min_grad, max_grad,
+                 cell_dim, cell_layer_num, cell_keep_prob, char_dim,
+                 hidden_dim, output_dr,
+                 scope="NameGeneration", lr=1e-3):
 
         # session settings
         self.sess = sess
@@ -20,19 +20,18 @@ class RNN(object):
         self.min_grad = min_grad
         self.max_grad = max_grad
 
-        # rnn parameters
+        # model parameters
         self.max_time_step = max_time_step
         self.cell_dim = cell_dim
         self.cell_layer_num = cell_layer_num
         self.cell_keep_prob = cell_keep_prob
-        self.embed_dim = embed_dim
+        self.char_dim = char_dim
         self.hidden_dim = hidden_dim
         self.output_dr = output_dr
-        self.output_rr = output_rr
 
         # input data placeholders
-        self.input_dim = input_dim
-        self.output_dim = output_dim
+        self.d_input_dim = d_input_dim
+        self.d_output_dim = d_output_dim
         self.inputs = tf.placeholder(tf.float32, [None, self.max_time_step, self.input_dim])
         self.input_len = tf.placeholder(tf.int32, [None])
         self.labels = tf.placeholder(tf.int32, [None, self.max_time_step])
@@ -59,7 +58,7 @@ class RNN(object):
         self.build_model()
 
     def build_model(self):
-        print("## Building an RNN model")
+        print("## Building an GAN model")
         fw_cell = lstm_cell(self.cell_dim, self.cell_layer_num, self.cell_keep_prob)
         bw_cell = lstm_cell(self.cell_dim, self.cell_layer_num, self.cell_keep_prob)
 
@@ -124,4 +123,5 @@ class RNN(object):
         file_name = "%s.model" % self.scope
         file_name += "-10800"
         self.saver.restore(self.sess, os.path.join(checkpoint_dir, file_name))
-        print("Model loaded", file_name)
+        print("Model loaded", file_name)i
+

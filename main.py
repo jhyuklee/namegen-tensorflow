@@ -2,7 +2,7 @@ import tensorflow as tf
 
 from time import gmtime, strftime
 from dataset import *
-from model import RNN
+from model import GAN
 
 
 flags = tf.app.flags
@@ -28,7 +28,8 @@ def create_model(config, sess):
     scope = 'NameGeneration-' + strftime("%Y%m%d%H%M%S", gmtime())
     config.checkpoint_dir += '/%s' % scope
     print(scope)
-    rnn_model = RNN(sess=sess,
+    
+    gan_model = GAN(sess=sess,
                     input_dim=config.d_input_dim,
                     output_dim=config.d_output_dim,
                     max_time_step=config.max_time_step,
@@ -40,7 +41,7 @@ def create_model(config, sess):
                     hidden_dim=config.hidden_dim,
                     output_dr=config.output_dr,
                     scope=scope)
-    return rnn_model
+    return gan_model
 
 
 def main(_):
@@ -51,12 +52,13 @@ def main(_):
     config.gpu_options.per_process_gpu_memory_fraction = 0.5
 
     with tf.Session(config=config) as sess:
-        rnn_model = create_model(FLAGS, sess)
+        gan_model = create_model(FLAGS, sess)
         print(flags.FLAGS.__flags, '\n')
+
         if FLAGS.is_train:
-            train(rnn_model, FLAGS, sess)
+            train(gan_model, FLAGS, sess)
         else:
-            test_cost, test_acc = test(rnn_model, FLAGS, sess, is_valid=False)
+            test_cost, test_acc = test(gan_model, FLAGS, sess, is_valid=False)
             print("Testing loss: %.3f, accuracy: %.3f" % (test_cost, test_acc))
 
 
