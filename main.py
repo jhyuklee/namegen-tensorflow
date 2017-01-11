@@ -15,7 +15,7 @@ flags.DEFINE_integer("max_grad", 10, "Maximum gradient to clip")
 flags.DEFINE_integer("cell_dim", 200, "Dimension of RNN cell")
 flags.DEFINE_integer("cell_layer_num", 1, "The layer number of RNN ")
 flags.DEFINE_integer("cell_keep_prob", 1.0, "Keep prob of RNN cell dropout")
-flags.DEFINE_integer("embed_dim", 50, "Dimension of character embedding")
+flags.DEFINE_integer("char_dim", 50, "Dimension of character embedding")
 flags.DEFINE_integer("hidden_dim", 300, "Dimension of hidden layer for FFNN")
 flags.DEFINE_integer("output_dr", 0.5, "Dropout rate of FFNN")
 flags.DEFINE_string("checkpoint_dir", "checkpoint", "Directory name to save the checkpoints [checkpoint]")
@@ -29,16 +29,16 @@ def create_model(config, sess):
     config.checkpoint_dir += '/%s' % scope
     print(scope)
     rnn_model = RNN(sess=sess,
-                    input_dim=config.input_dim,
-                    output_dim=config.output_dim,
+                    input_dim=config.d_input_dim,
+                    output_dim=config.d_output_dim,
                     max_time_step=config.max_time_step,
                     min_grad=config.min_grad, max_grad=config.max_grad,
                     cell_dim=config.cell_dim,
                     cell_layer_num=config.cell_layer_num,
                     cell_keep_prob=config.cell_keep_prob,
-                    embed_dim=config.embed_dim,
+                    char_dim=config.char_dim,
                     hidden_dim=config.hidden_dim,
-                    output_dr=config.output_dr, output_rr=config.output_rr,
+                    output_dr=config.output_dr,
                     scope=scope)
     return rnn_model
 
