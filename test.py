@@ -1,6 +1,0 @@
-print('hello')
-
-"""
-egeqgqe
-"""
-# hohoo
