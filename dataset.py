@@ -11,6 +11,9 @@ from random import shuffle
 from utils import *
 
 batch_size = 1000
+vocab_size = 48
+max_name_len = 50
+
 data_dir = './data'
 train_ratio = 0.8
 valid_ratio = 0.1
@@ -19,9 +22,10 @@ disp_epoch = 50
 test_epoch = 200
 
 
-def one_hot(index, length):
+def one_hot(index, length, value=1):
+    assert index >= 0, 'index must be bigger or equal than 0'
     vector = np.zeros([length])
-    vector[index] = 1
+    vector[index] = value
     return vector
 
 
@@ -33,7 +37,7 @@ def get_name_data(data_dir):
         char_dict = {}
         country_dict = {}
         name_dict = {}
-        name_max_len = 0
+        max_len = 0
         collision_cnt = 0
 
         for file_cnt, file_name in enumerate(sorted(files)):
@@ -51,14 +55,14 @@ def get_name_data(data_dir):
             elif file_name == 'parsed.txt':
                 for k, line in enumerate(data):
                     line = line[:-1]
-                    name = [one_hot(int(k), 48) for k in line.split(']')[0][1:].split(', ')]
-                    nationality = int(line.split(']')[1].split(' ')[1])
+                    name = [one_hot(int(char), vocab_size) for char in line.split(']')[0][1:].split(', ')]
+                    nationality = one_hot(len(name)-1, max_name_len, int(line.split(']')[1].split(' ')[1]))
                     name_length = len(name)
 
-                    if name_max_len < len(name):
-                        name_max_len = len(name)
-                    while len(name) != 50:
-                        name.append(np.zeros([48]))
+                    if max_len < len(name): # update the maximum length
+                        max_len = len(name)
+                    while len(name) != max_name_len:
+                        name.append(np.zeros([vocab_size]))
                    
                     name_string = ''.join([char_dict[char] for char in np.argmax(name, 1)][:name_length])
                     if name_string in name_dict:
@@ -79,7 +83,7 @@ def get_name_data(data_dir):
             print('reading', file_name, 'of length', file_len)
 
     print('total data length:', len(inputs), len(labels), len(inputs_length))
-    print('name max length:', name_max_len, 'to 50')
+    print('name max length:', max_len, '/', max_name_len)
     print('unique name set:', len(name_dict))
     name_sorted = sorted(name_dict.items(), key=operator.itemgetter(1))
     print(name_sorted[::-1][:10])
@@ -155,6 +159,9 @@ def top_n_acc(labels, logits, logits_index, top, inputs=None):
 def train(model, config, sess):
     print('## Training')
     tf.global_variables_initializer().run()
+    
+    if not os.path.exists(config.checkpoint_dir):
+        os.makedirs(config.checkpoint_dir)
 
     if config.continue_train is not False:
         model.load(config.checkpoint_dir)
@@ -166,39 +173,38 @@ def train(model, config, sess):
                 batch_inputs = train_input[datum_idx:datum_idx+batch_size]
                 batch_input_len = train_length[datum_idx:datum_idx + batch_size]
                 batch_labels = train_label[datum_idx:datum_idx+batch_size]
+                batch_z = np.random.uniform(-1, 1, (len(batch_inputs), config.input_dim))
+                
+                assert len(batch_inputs) == len(batch_input_len) == len(batch_labels) == len(batch_z), 'not same batch size'
 
                 feed_dict = {model.inputs: batch_inputs, model.input_len: batch_input_len, 
-                        model.labels: batch_labels}
-                pred, _, cost, step, mask = sess.run([model.logits, model.optimize, 
-                    model.losses, model.global_step, model.mask], feed_dict=feed_dict)
+                        model.z: batch_z, model.labels: batch_labels}
+                sess.run([model.d_optimize_real, model.d_optimize_fake], feed_dict=feed_dict)
+                sess.run(model.g_optimize, feed_dict=feed_dict)
+                sess.run(model.g_optimize, feed_dict=feed_dict)
+                sess.run(model.g_optimize, feed_dict=feed_dict)
 
                 if (datum_idx % (batch_size*5) == 0) \
                     or (datum_idx + batch_size >= len(train_input)):
-                    acc = accuracy_score(batch_labels, pred, batch_input_len)
-                    acc3 = top_n_acc(batch_labels, pred, batch_input_len, 3)
+                    d_loss, g_loss = sess.run([model.d_loss, model.g_loss], feed_dict=feed_dict)
                     _progress = progress((datum_idx + batch_size) / float(len(train_input)))
-                    _progress += " Training loss: %.3f, acc1: %.3f, acc3: %.3f, epoch: %d" % (cost,
-                            acc, acc3, epoch_idx)
+                    _progress += " Training d_loss: %.3f, g_loss: %.3f, epoch: %d" % (d_loss, g_loss, epoch_idx)
                     sys.stdout.write(_progress)
                     sys.stdout.flush()
-            
-            if epoch_idx % disp_epoch == 0 or epoch_idx == config.epoch - 1:
-                valid_cost, valid_acc, valid_acc3 = test(model, config, sess, is_valid=True)
-                print("\nValidation loss: %.3f, acc1: %.3f, acc3: %.3f" % (valid_cost, valid_acc,
-                    valid_acc3))
 
             if epoch_idx % test_epoch == 0 or epoch_idx == config.epoch - 1:
-                test_cost, test_acc, test_acc3 = test(model, config, sess, is_valid=False)
-                print("Testing loss: %.3f, acc1: %.3f, acc3: %.3f" % (test_cost, test_acc,
-                    test_acc3))
-                model.save(config.checkpoint_dir, sess.run(model.global_step))
-                print()
+                #test_cost, test_acc, test_acc3 = test(model, config, sess, is_valid=False)
+                #print("Testing loss: %.3f, acc1: %.3f, acc3: %.3f" % (test_cost, test_acc,
+                #    test_acc3))
+                #model.save(config.checkpoint_dir, sess.run(model.global_step))
+                #print()
+                pass
 
             summary = sess.run(model.merged_summary, feed_dict=feed_dict)
-            model.train_writer.add_summary(summary, step)
+            # model.train_writer.add_summary(summary, step)
+            print()
 
     model.save(config.checkpoint_dir, sess.run(model.global_step))
-
 
 
 def test(model, config, sess, is_valid=False):
@@ -215,8 +221,6 @@ def test(model, config, sess, is_valid=False):
     pred, cost, step, summary = sess.run([model.logits, model.losses, model.global_step, model.merged_summary],
             feed_dict=feed_dict)
 
-    # save pred, test_input, test_label
-    
     if is_valid:
         acc = accuracy_score(valid_label, pred, valid_length, valid_input)
         acc3 = top_n_acc(valid_label, pred, valid_length, 3)

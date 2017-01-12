@@ -37,7 +37,7 @@ def rnn_model(inputs, input_len, cell):
     with tf.variable_scope('RNN') as scope:
         outputs, state = tf.nn.rnn(cell, inputs, sequence_length=input_len, dtype=tf.float32, scope=scope)
         outputs = tf.transpose(tf.pack(outputs), [1, 0, 2])
-        return outputs
+        return outputs, state
 
 
 def bi_rnn_model(inputs, input_len, fw_cell, bw_cell):
@@ -62,9 +62,9 @@ def embedding_lookup(inputs, voca_size, embedding_dim, visual_dir, scope='Embedd
         return inputs_embed, projector, config
 
 
-def linear(inputs, input_dim, output_dim, dropout_rate=1.0, regularize_rate=0, activation=None, scope='Linear'):
+def linear(inputs, output_dim, dropout_rate=1.0, regularize_rate=0, activation=None, scope='Linear'):
     with tf.variable_scope(scope) as scope:
-        inputs = tf.reshape(inputs, [-1, input_dim])
+        input_dim = inputs.get_shape()[-1]
         weights = tf.get_variable('Weights', [input_dim, output_dim],
                                   initializer=tf.random_normal_initializer())
         variable_summaries(weights, scope.name + '/Weights')
@@ -81,11 +81,11 @@ def variable_summaries(var, name):
     """Attach a lot of summaries to a Tensor."""
     with tf.name_scope('summaries'):
         mean = tf.reduce_mean(var)
-        tf.scalar_summary('mean/' + name, mean)
+        tf.summary.scalar('mean/' + name, mean)
         with tf.name_scope('stddev'):
             stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
-        tf.scalar_summary('stddev/' + name, stddev)
-        tf.scalar_summary('max/' + name, tf.reduce_max(var))
-        tf.scalar_summary('min/' + name, tf.reduce_min(var))
-        tf.histogram_summary(name, var)
+        tf.summary.scalar('stddev/' + name, stddev)
+        tf.summary.scalar('max/' + name, tf.reduce_max(var))
+        tf.summary.scalar('min/' + name, tf.reduce_min(var))
+        tf.summary.histogram(name, var)
 

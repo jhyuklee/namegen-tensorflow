@@ -6,9 +6,8 @@ from model import GAN
 
 
 flags = tf.app.flags
-flags.DEFINE_integer("epoch", 3000, "Epoch to train")
-flags.DEFINE_integer("d_input_dim", 50, "Discriminative model input dimension")
-flags.DEFINE_integer("d_output_dim", 2, "Discriminative model output dimension")
+flags.DEFINE_integer("epoch", 500, "Epoch to train")
+flags.DEFINE_integer("input_dim", 48, "Data input dimension")
 flags.DEFINE_integer("max_time_step", 50, "Maximum time step of RNN")
 flags.DEFINE_integer("min_grad", -10, "Minimum gradient to clip")
 flags.DEFINE_integer("max_grad", 10, "Maximum gradient to clip")
@@ -30,8 +29,7 @@ def create_model(config, sess):
     print(scope)
     
     gan_model = GAN(sess=sess,
-                    input_dim=config.d_input_dim,
-                    output_dim=config.d_output_dim,
+                    input_dim=config.input_dim,
                     max_time_step=config.max_time_step,
                     min_grad=config.min_grad, max_grad=config.max_grad,
                     cell_dim=config.cell_dim,

@@ -1,0 +1,4 @@
+embeddings {
+  tensor_name: "encoder/Character/embed:0"
+  metadata_path: "checkpoint/NameGeneration-20170112103824/metadata.tsv"
+}
