@@ -43,14 +43,14 @@ class GAN(object):
         self.g_loss = None
         self.decoded = None
         self.g_decoded = None
-        self.ed_loss = None
+        self.ae_loss = None
 
         # model settings
         self.optimizer = tf.train.AdamOptimizer()
         self.d_optimize_real = None
         self.d_optimize_fake = None
         self.g_optimize = None
-        self.ed_optimize = None
+        self.ae_optimize = None
         self.params = None
         self.saver = None
         self.global_step = tf.Variable(0, name="step", trainable=False)
@@ -155,7 +155,7 @@ class GAN(object):
         # encoder decoder loss
         state = self.encoder(self.inputs)
         self.decoded = self.decoder(self.decoder_inputs, state)
-        self.ed_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(self.decoded,
+        self.ae_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(self.decoded,
                 tf.reshape(self.inputs, [-1, self.input_dim])))
 
         # generator logits
@@ -190,7 +190,7 @@ class GAN(object):
         self.d_optimize_real = self.optimizer.minimize(d_loss_real, var_list=d_vars)
         self.d_optimize_fake = self.optimizer.minimize(d_loss_fake, var_list=d_vars)
         self.g_optimize = self.optimizer.minimize(self.g_loss, var_list=g_vars)
-        self.ed_optimize = self.optimizer.minimize(self.ed_loss, var_list=ed_vars)
+        self.ae_optimize = self.optimizer.minimize(self.ae_loss, var_list=ed_vars)
 
         model_vars = [v for v in tf.global_variables()]
         print('model variables', [model_var.name for model_var in tf.global_variables()])

@@ -113,45 +113,6 @@ print(np.argmax(total_decoder_input[0], 1), np.argmax(total_label[0], 0), total_
 print('preprocessing done\n')
 
 
-def accuracy_score(labels, logits, logits_index, inputs=None):
-    if logits_index is None:
-        logits_per_step = logits
-        labels_per_step = np.reshape(labels, -1)
-    else:
-        index = np.arange(0, len(labels)) * len(labels[0]) + (logits_index - 1)
-        logits_per_step = logits[index]
-        labels_per_step = np.reshape(labels, -1)[index]
-        
-        if inputs is not None:
-            inputs = np.argmax(inputs, 2)
-            f = open("./preds.txt", 'w')
-            for logit, logit_index, label, input in zip(logits_per_step, logits_index, labels_per_step, inputs):
-                name = ''.join([char_dict[char] for char in input][:logit_index])
-                pred = 'pred => ' + str(np.argmax(logit)) + ':' + country_dict[np.argmax(logit)]
-                corr = 'real => ' + str(label) + ':' + country_dict[label]
-                result = '[correct]' if np.argmax(logit)== label else '[wrong]'
-                end = '--------------------------------------------'
-                # print(result + '\n' + name + '\n' + pred + '\n' + corr + '\n' + end + '\n')
-                f.write(result + '\n' + name + '\n' + pred + '\n' + corr + '\n' + end + '\n')
-            f.close()
-     
-    correct_prediction = np.equal(labels_per_step, np.argmax(logits_per_step, 1))
-    accuracy = np.mean(correct_prediction.astype(float))
-    return accuracy
-
-
-def top_n_acc(labels, logits, logits_index, top, inputs=None):
-    index = np.arange(0, len(labels)) * len(labels[0]) + (logits_index - 1)
-    logits_per_step = logits[index]
-    labels_per_step = np.reshape(labels, -1)[index]
-        
-    top_n_logits = [logit.argsort()[-top:][::-1] for logit in logits_per_step]
-    correct_prediction = np.array([(pred in topn) for pred, topn in zip(labels_per_step,
-        top_n_logits)])
-    accuracy = np.mean(correct_prediction.astype(float))
-    return accuracy
-
-
 def train(model, config, sess):
     print('## Training')
     tf.global_variables_initializer().run()
@@ -159,12 +120,11 @@ def train(model, config, sess):
     if not os.path.exists(config.checkpoint_dir):
         os.makedirs(config.checkpoint_dir)
 
-    if config.continue_train is not False:
+    # Train or load Autoencoder
+    if config.load_autoencoder is True:
         model.load(config.checkpoint_dir)
-
-    start_time = time.time()
-
-    for epoch_idx in range(config.ed_epoch):
+    
+    for epoch_idx in range(config.ae_epoch):
         for datum_idx in range(0, len(total_input), batch_size):
             batch_inputs = total_input[datum_idx:datum_idx+batch_size]
             batch_decoder_inputs = total_decoder_input[datum_idx:datum_idx+batch_size]
@@ -179,24 +139,24 @@ def train(model, config, sess):
                     model.z: batch_z, model.labels: batch_labels, model.decoder_inputs:
                     batch_decoder_inputs}
 
-            sess.run(model.ed_optimize, feed_dict=feed_dict)
+            sess.run(model.ae_optimize, feed_dict=feed_dict)
 
             if (datum_idx % (batch_size*5) == 0) \
                 or (datum_idx + batch_size >= len(total_input)):
-                decoded, ed_loss = sess.run([model.decoded, model.ed_loss], feed_dict=feed_dict)
+                decoded, ae_loss = sess.run([model.decoded, model.ae_loss], feed_dict=feed_dict)
                 decoded = decoded.reshape((len(batch_inputs), config.max_time_step,
                     config.input_dim))
                 decoded_name = ''.join([char_dict[char] for char in np.argmax(decoded[0], 1)])[:batch_input_len[0]]
                 original_name = ''.join([char_dict[char] for char in np.argmax(batch_inputs[0], 1)])[:batch_input_len[0]]
                 _progress = progress((datum_idx + batch_size) / float(len(total_input)))
-                _progress += " Training decoded: %s/%s, ed_loss: %.3f, epoch: %d" % (original_name,
-                        decoded_name, ed_loss, epoch_idx)
+                _progress += " Training decoded: %s/%s, ae_loss: %.3f, epoch: %d" % (original_name,
+                        decoded_name, ae_loss, epoch_idx)
                 sys.stdout.write(_progress)
                 sys.stdout.flush()
-
         print()
+    model.save(config.checkpoint_dir, sess.run(model.global_step))
 
-
+    # Train GAN
     for epoch_idx in range(config.gan_epoch):
         for datum_idx in range(0, len(total_input), batch_size):
             batch_inputs = total_input[datum_idx:datum_idx+batch_size]
@@ -233,12 +193,17 @@ def train(model, config, sess):
                 sys.stdout.write(_progress)
                 sys.stdout.flush()
 
+                f = open(config.results_dir + '/' + model.scope, 'w')
+                for decoded in g_decoded:
+                    name = ''.join([char_dict[char] for char in np.argmax(decoded, 1)])
+                    if PAD in np.argmax(decoded, 1):
+                        PAD_idx = np.argwhere(np.argmax(decoded, 1) == PAD)[0]
+                    else:
+                        PAD_idx = -1
+                    f.write(name[:PAD_idx] + '\n')
+                f.close()
+     
         if epoch_idx % test_epoch == 0 or epoch_idx == config.gan_epoch - 1:
-            #test_cost, test_acc, test_acc3 = test(model, config, sess, is_valid=False)
-            #print("Testing loss: %.3f, acc1: %.3f, acc3: %.3f" % (test_cost, test_acc,
-            #    test_acc3))
-            #model.save(config.checkpoint_dir, sess.run(model.global_step))
-            #print()
             pass
 
         # summary = sess.run(model.merged_summary, feed_dict=feed_dict)
@@ -246,31 +211,4 @@ def train(model, config, sess):
         print()
 
     # model.save(config.checkpoint_dir, sess.run(model.global_step))
-
-
-def test(model, config, sess, is_valid=False):
-    saved_dropout = model.output_dr
-    model.output_dr = 1.0
-
-    if is_valid:
-        feed_dict = {model.inputs: valid_input, model.input_len: valid_length,
-                model.labels: valid_label}
-    else:
-        feed_dict = {model.inputs: test_input, model.input_len: test_length,
-                model.labels: test_label}
-    
-    pred, cost, step, summary = sess.run([model.logits, model.losses, model.global_step, model.merged_summary],
-            feed_dict=feed_dict)
-
-    if is_valid:
-        acc = accuracy_score(valid_label, pred, valid_length, valid_input)
-        acc3 = top_n_acc(valid_label, pred, valid_length, 3)
-        model.valid_writer.add_summary(summary, step)
-    else:
-        acc = accuracy_score(test_label, pred, test_length)
-        acc3 = top_n_acc(test_label, pred, test_length, 3)
-        model.test_writer.add_summary(summary, step)
-
-    model.output_dr = saved_dropout
-    return cost, acc, acc3
 
