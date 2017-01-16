@@ -6,8 +6,9 @@ from model import GAN
 
 
 flags = tf.app.flags
-flags.DEFINE_integer("epoch", 500, "Epoch to train")
-flags.DEFINE_integer("input_dim", 48, "Data input dimension")
+flags.DEFINE_integer("ed_epoch", 100, "Epoch to train")
+flags.DEFINE_integer("gan_epoch", 2000, "Epoch to train")
+flags.DEFINE_integer("input_dim", 48 + 3, "Data input dimension + PAD, GO, EOS")
 flags.DEFINE_integer("max_time_step", 50, "Maximum time step of RNN")
 flags.DEFINE_integer("min_grad", -10, "Minimum gradient to clip")
 flags.DEFINE_integer("max_grad", 10, "Maximum gradient to clip")

@@ -1,4 +1,5 @@
 import tensorflow as tf
+import numpy as np
 import os
 
 from ops import *
@@ -33,20 +34,23 @@ class GAN(object):
         self.input_dim = input_dim
         self.inputs = tf.placeholder(tf.float32, [None, self.max_time_step, self.input_dim])
         self.input_len = tf.placeholder(tf.int32, [None])
+        self.decoder_inputs = tf.placeholder(tf.float32, [None, self.max_time_step, self.input_dim])
         self.z = tf.placeholder(tf.float32, [None, self.input_dim])
         self.labels = tf.placeholder(tf.int32, [None, self.max_time_step])   # future works: conditional gan
 
         # model outputs
         self.d_loss = None
         self.g_loss = None
-        self.grads = None
-        self.mask = None
+        self.decoded = None
+        self.g_decoded = None
+        self.ed_loss = None
 
         # model settings
         self.optimizer = tf.train.AdamOptimizer()
         self.d_optimize_real = None
         self.d_optimize_fake = None
         self.g_optimize = None
+        self.ed_optimize = None
         self.params = None
         self.saver = None
         self.global_step = tf.Variable(0, name="step", trainable=False)
@@ -66,7 +70,7 @@ class GAN(object):
             z: random input vector of size [batch_size, z_dim]
 
         Returns:
-            out: generated name hidden vectors of size [batch_size, cell_dim]
+            out: generated name hidden vectors of size [batch_size, cell_dim*2]
         """
 
         with tf.variable_scope('generator', reuse=reuse):
@@ -74,14 +78,14 @@ class GAN(object):
                     output_dim=self.hidden_dim * 2,
                     activation=tf.nn.relu, scope='Hidden1')
             out = linear(inputs=hidden1,
-                    output_dim=self.cell_dim, scope='Out')
+                    output_dim=self.cell_dim * 2, scope='Out')
 
             return out
 
     def discriminator(self, inputs, reuse=False):
         """
         Args:
-            inputs: inputs of size [batch_size, cell_dim]
+            inputs: inputs of size [batch_size, cell_dim*2]
 
         Returns:
             logits: unnormalized output probabilities of size [batch_size]
@@ -102,51 +106,68 @@ class GAN(object):
             inputs: inputs to encode with size [batch_size, time_steps, input_dim]
 
         Returns:
-            state: hidden state vector of encoder with size [batch_size, cell_dim]
+            state: hidden state vector of encoder with size [batch_size, cell_dim*2]
         """
 
         with tf.variable_scope('encoder', reuse=reuse):
             cell = lstm_cell(self.cell_dim, self.cell_layer_num, self.cell_keep_prob)
-            inputs_embed, projector, self.embed_config  = embedding_lookup(tf.argmax(inputs, 2), 
-                    self.input_dim, self.char_dim, 'checkpoint/%s' % self.scope, scope='Character')
+            inputs_embed, projector, self.embed_config  = embedding_lookup(
+                    inputs=tf.argmax(inputs, 2), 
+                    voca_size=self.input_dim,
+                    embedding_dim=self.char_dim, 
+                    visual_dir='checkpoint/%s' % self.scope, 
+                    scope='Character')
             inputs_reshape = rnn_reshape(inputs_embed, self.char_dim, self.max_time_step)
-            outputs, state = rnn_model(inputs_reshape, self.input_len, cell) 
-            return state[0][1]
+            outputs, state = rnn_model(inputs_reshape, self.input_len, cell)
+            return state
 
-    def decoder(self, inputs, state, reuse=False):
+    def decoder(self, inputs, state, feed_prev=False, reuse=None):
         """
         Args:
-            inputs: inputs to decode with size [batch_size, time_steps, input_dim]
+            inputs: decoder inputs with size [batch_size, time_steps, input_dim]
             state: hidden state of encoder with size [batch_size, cell_dim]
 
         Returns:
-            outputs_embed: decoded outputs with size [batch_size, char_dim]
+            decoded: decoded outputs with size [batch_size, time_steps, input_dim]
         """
 
         with tf.variable_scope('decoder', reuse=reuse):
+            if feed_prev:
+                def loop_function(prev, i):
+                    next =  tf.argmax(linear(inputs=prev, 
+                        output_dim=self.input_dim,
+                        scope='Out', reuse=True), 1)
+                    return tf.one_hot(next, self.input_dim)
+            else:
+                loop_function = None
+
             cell = lstm_cell(self.cell_dim, self.cell_layer_num, self.cell_keep_prob)
             inputs_t = tf.unpack(tf.transpose(inputs, [1, 0, 2]), self.max_time_step)
-            # vocab[vocab_size-1] = GO, vocab[vocab_size-2] = EOS
-            inputs_pad = [tf.one_hot(0, self.input_dim), inputs_t, tf.one_hot(1, self.input_dim)]
-            print(inputs_pad)
-            outputs, states = tf.nn.seq2seq.rnn_decoder(inputs_pad, state, cell)
-
-        with tf.variable_scope('encoder', reuse=reuse):
-            outputs_embed, projector, self.embed_config  = embedding_lookup(tf.argmax(outputs, 2), 
-                    self.input_dim, self.char_dim, 'checkpoint/%s' % self.scope, scope='Character')
-            
-            return outputs_embed
+            outputs, states = tf.nn.seq2seq.rnn_decoder(inputs_t, state, cell, loop_function)
+            outputs_t = tf.transpose(tf.pack(outputs), [1, 0, 2])
+            outputs_tr = tf.reshape(outputs_t, [-1, self.cell_dim])
+            decoded = linear(inputs=outputs_tr,
+                    output_dim=self.input_dim, scope='rnn_decoder/loop_function/Out', reuse=reuse)
+            return decoded
 
 
     def build_model(self):
-        print("## Building an GAN model")
+        # encoder decoder loss
+        state = self.encoder(self.inputs)
+        self.decoded = self.decoder(self.decoder_inputs, state)
+        self.ed_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(self.decoded,
+                tf.reshape(self.inputs, [-1, self.input_dim])))
 
-        # generator loss
+        # generator logits
         h_hat = self.generator(self.z)
         logits_fake = self.discriminator(h_hat)
+        c_hat, h_hat = tf.split(1, 2, h_hat)
+        self.g_decoded = self.decoder(self.decoder_inputs, ((c_hat, h_hat),),
+                feed_prev=True, reuse=True)
         
-        # discriminator loss
-        h = self.encoder(self.inputs)
+        # discriminator logits
+        h = self.encoder(self.inputs, reuse=True)
+        h = tf.concat(1, [h[0][0], h[0][1]])
         logits_real = self.discriminator(h, reuse=True)
 
         # compute loss
@@ -164,11 +185,12 @@ class GAN(object):
         self.params = tf.trainable_variables()
         d_vars = [var for var in self.params if 'discriminator' in var.name]
         g_vars = [var for var in self.params if 'generator' in var.name]
-        e_vars = [var for var in self.params if 'encoder' in var.name]
+        ed_vars = [var for var in self.params if 'encoder' or 'decoder' in var.name]
 
         self.d_optimize_real = self.optimizer.minimize(d_loss_real, var_list=d_vars)
         self.d_optimize_fake = self.optimizer.minimize(d_loss_fake, var_list=d_vars)
         self.g_optimize = self.optimizer.minimize(self.g_loss, var_list=g_vars)
+        self.ed_optimize = self.optimizer.minimize(self.ed_loss, var_list=ed_vars)
 
         model_vars = [v for v in tf.global_variables()]
         print('model variables', [model_var.name for model_var in tf.global_variables()])

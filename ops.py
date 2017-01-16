@@ -62,8 +62,9 @@ def embedding_lookup(inputs, voca_size, embedding_dim, visual_dir, scope='Embedd
         return inputs_embed, projector, config
 
 
-def linear(inputs, output_dim, dropout_rate=1.0, regularize_rate=0, activation=None, scope='Linear'):
-    with tf.variable_scope(scope) as scope:
+def linear(inputs, output_dim, dropout_rate=1.0, regularize_rate=0, activation=None, 
+        scope='Linear', reuse=None):
+    with tf.variable_scope(scope, reuse=reuse) as scope:
         input_dim = inputs.get_shape()[-1]
         weights = tf.get_variable('Weights', [input_dim, output_dim],
                                   initializer=tf.random_normal_initializer())
