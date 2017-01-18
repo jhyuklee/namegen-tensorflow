@@ -7,17 +7,18 @@ from ops import *
 
 class GAN(object):
     def __init__(self, sess,
-                 input_dim, max_time_step, min_grad, max_grad,
+                 input_dim, class_dim, max_time_step, min_grad, max_grad,
                  cell_dim, cell_layer_num, cell_keep_prob, char_dim,
                  hidden_dim, output_dr,
-                 scope="NameGeneration", lr=1e-2):
+                 scope="NameGeneration", ae_lr=1e-2, gan_lr=1e-1):
 
         # session settings
         self.sess = sess
         self.scope = scope
 
         # hyper parameters
-        self.lr = lr
+        self.ae_lr = ae_lr
+        self.gan_lr = gan_lr
         self.min_grad = min_grad
         self.max_grad = max_grad
 
@@ -32,11 +33,12 @@ class GAN(object):
 
         # input data placeholders
         self.input_dim = input_dim
+        self.class_dim = class_dim
         self.inputs = tf.placeholder(tf.float32, [None, self.max_time_step, self.input_dim])
         self.input_len = tf.placeholder(tf.int32, [None])
         self.decoder_inputs = tf.placeholder(tf.float32, [None, self.max_time_step, self.input_dim])
         self.z = tf.placeholder(tf.float32, [None, self.input_dim])
-        self.labels = tf.placeholder(tf.int32, [None, self.max_time_step])   # future works: conditional gan
+        self.labels = tf.placeholder(tf.float32, [None, self.class_dim])     # future works: conditional gan
 
         # model outputs
         self.d_loss = None
@@ -46,7 +48,6 @@ class GAN(object):
         self.ae_loss = None
 
         # model settings
-        self.optimizer = tf.train.AdamOptimizer()
         self.d_optimize_real = None
         self.d_optimize_fake = None
         self.g_optimize = None
@@ -64,17 +65,17 @@ class GAN(object):
         self.embed_config = None
         self.build_model()
 
-    def generator(self, z, reuse=False):
+    def generator(self, zc, reuse=False):
         """
         Args:
-            z: random input vector of size [batch_size, z_dim]
+            zc: random input vector of size [batch_size, z_dim + class_dim]
 
         Returns:
             out: generated name hidden vectors of size [batch_size, cell_dim*2]
         """
 
         with tf.variable_scope('generator', reuse=reuse):
-            hidden1 = linear(inputs=z,
+            hidden1 = linear(inputs=zc,
                     output_dim=self.hidden_dim * 2,
                     activation=tf.nn.relu, scope='Hidden1')
             hidden2 = linear(inputs=hidden1,
@@ -88,7 +89,7 @@ class GAN(object):
     def discriminator(self, inputs, reuse=False):
         """
         Args:
-            inputs: inputs of size [batch_size, cell_dim*2]
+            inputs: inputs of size [batch_size, cell_dim*2 + class_dim]
 
         Returns:
             logits: unnormalized output probabilities of size [batch_size]
@@ -166,8 +167,8 @@ class GAN(object):
                 tf.reshape(self.inputs, [-1, self.input_dim])))
 
         # generator logits
-        h_hat = self.generator(self.z)
-        logits_fake = self.discriminator(h_hat)
+        h_hat = self.generator(tf.concat(1, [self.z, self.labels]))
+        logits_fake = self.discriminator(tf.concat(1, [h_hat, self.labels]))
         c_hat, h_hat = tf.split(1, 2, h_hat)
         self.g_decoded = self.decoder(self.decoder_inputs, ((c_hat, h_hat),),
                 feed_prev=True, reuse=True)
@@ -175,7 +176,7 @@ class GAN(object):
         # discriminator logits
         h = self.encoder(self.inputs, reuse=True)
         h = tf.concat(1, [h[0][0], h[0][1]])
-        logits_real = self.discriminator(h, reuse=True)
+        logits_real = self.discriminator(tf.concat(1, [h, self.labels]), reuse=True)
 
         # compute loss
         d_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits_real,
@@ -194,10 +195,10 @@ class GAN(object):
         g_vars = [var for var in self.params if 'generator' in var.name]
         ed_vars = [var for var in self.params if 'encoder' or 'decoder' in var.name]
 
-        self.d_optimize_real = self.optimizer.minimize(d_loss_real, var_list=d_vars)
-        self.d_optimize_fake = self.optimizer.minimize(d_loss_fake, var_list=d_vars)
-        self.g_optimize = self.optimizer.minimize(self.g_loss, var_list=g_vars)
-        self.ae_optimize = self.optimizer.minimize(self.ae_loss, var_list=ed_vars)
+        self.d_optimize_real = tf.train.AdamOptimizer(self.gan_lr).minimize(d_loss_real, var_list=d_vars)
+        self.d_optimize_fake = tf.train.AdamOptimizer(self.gan_lr).minimize(d_loss_fake, var_list=d_vars)
+        self.g_optimize = tf.train.AdamOptimizer(self.gan_lr).minimize(self.g_loss, var_list=g_vars)
+        self.ae_optimize = tf.train.AdamOptimizer(self.ae_lr).minimize(self.ae_loss, var_list=ed_vars)
 
         model_vars = [v for v in tf.global_variables()]
         print('model variables', [model_var.name for model_var in tf.global_variables()])

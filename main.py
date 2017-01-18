@@ -6,9 +6,10 @@ from model import GAN
 
 
 flags = tf.app.flags
-flags.DEFINE_integer("ae_epoch", 300, "Epoch to train")
+flags.DEFINE_integer("ae_epoch", 500, "Epoch to train")
 flags.DEFINE_integer("gan_epoch", 2000, "Epoch to train")
 flags.DEFINE_integer("input_dim", 48 + 3, "Data input dimension + PAD, GO, EOS")
+flags.DEFINE_integer("class_dim", 127, "Data class dimension")
 flags.DEFINE_integer("max_time_step", 50, "Maximum time step of RNN")
 flags.DEFINE_integer("min_grad", -10, "Minimum gradient to clip")
 flags.DEFINE_integer("max_grad", 10, "Maximum gradient to clip")
@@ -21,8 +22,8 @@ flags.DEFINE_integer("output_dr", 0.5, "Dropout rate of FFNN")
 flags.DEFINE_string("checkpoint_dir", "checkpoint", "Directory name to save the checkpoints [checkpoint]")
 flags.DEFINE_string("results_dir", "results", "Directory name to save the results")
 flags.DEFINE_boolean("is_train", True, "True for training, False for testing")
-flags.DEFINE_boolean("load_autoencoder", True, "True to load pretrained autoencoder")
-flags.DEFINE_boolean("train_autoencoder", False, "True to train autoencoder")
+flags.DEFINE_boolean("load_autoencoder", False, "True to load pretrained autoencoder")
+flags.DEFINE_boolean("train_autoencoder", True, "True to train autoencoder")
 flags.DEFINE_string("pretrained_ae", "pretrained_ae", "File name of pretrained autoencoder")
 FLAGS = flags.FLAGS
 
@@ -34,6 +35,7 @@ def create_model(config, sess):
     
     gan_model = GAN(sess=sess,
                     input_dim=config.input_dim,
+                    class_dim=config.class_dim,
                     max_time_step=config.max_time_step,
                     min_grad=config.min_grad, max_grad=config.max_grad,
                     cell_dim=config.cell_dim,

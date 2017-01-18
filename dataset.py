@@ -17,6 +17,7 @@ PAD = 48
 GO = 49
 EOS = 50
 max_name_len = 50
+class_dim = 127
 
 data_dir = './data'
 train_ratio = 0.8
@@ -63,7 +64,7 @@ def get_name_data(data_dir):
                     name = [one_hot(int(char), vocab_size) for char in line.split(']')[0][1:].split(', ')]
                     decoder_name = np.insert(name[:], 0, one_hot(GO, vocab_size), axis=0)
                     decoder_name = np.append(decoder_name[:], [one_hot(EOS, vocab_size)], axis=0)
-                    nationality = one_hot(len(name)-1, max_name_len, int(line.split(']')[1].split(' ')[1]))
+                    nationality = one_hot(int(line.split(']')[1].split(' ')[1]), class_dim).astype(float)
                     name_length = len(name)
 
                     if max_len < len(name): # update the maximum length
@@ -194,19 +195,19 @@ def train(model, config, sess):
                 else:
                     PAD_idx = -1
                 _progress = progress((datum_idx + batch_size) / float(len(total_input)))
-                _progress += " Training d_loss: %.3f, g_loss: %.3f, g_decoded: %s, epoch: %d" % \
-                        (d_loss, g_loss, g_decoded_name[:PAD_idx], epoch_idx)
+                _progress += " Training d_loss: %.3f, g_loss: %.3f, g_decoded: %s (%s), epoch: %d" % \
+                        (d_loss, g_loss, g_decoded_name[:PAD_idx], country_dict[np.argmax(batch_labels[0], 0)], epoch_idx)
                 sys.stdout.write(_progress)
                 sys.stdout.flush()
 
                 f = open(config.results_dir + '/' + model.scope, 'w')
-                for decoded in g_decoded:
+                for decoded, label in zip(g_decoded, batch_labels):
                     name = ''.join([char_dict[char] for char in np.argmax(decoded, 1)])
                     if PAD in np.argmax(decoded, 1):
                         PAD_idx = np.argwhere(np.argmax(decoded, 1) == PAD).flatten().tolist()[0]
                     else:
                         PAD_idx = -1
-                    f.write(name[:PAD_idx] + '\n')
+                    f.write(name[:PAD_idx] + '\t' + country_dict[np.argmax(label, 0)] + '\n')
                 f.close()
      
         if epoch_idx % test_epoch == 0 or epoch_idx == config.gan_epoch - 1:
