@@ -6,6 +6,7 @@ import time
 import sys
 import os
 import operator
+import random
 
 from random import shuffle
 from utils import *
@@ -114,23 +115,21 @@ print('preprocessing done\n')
 
 
 def train(model, config, sess):
-    print('## Training')
     tf.global_variables_initializer().run()
     
+    print('## Autoencoder Training')
     if not os.path.exists(config.checkpoint_dir):
         os.makedirs(config.checkpoint_dir)
-
-    # Train or load Autoencoder
     if config.load_autoencoder is True:
-        model.load(config.checkpoint_dir)
+        model.load('checkpoint/' + config.pretrained_ae, file_name=config.pretrained_ae)
     
-    for epoch_idx in range(config.ae_epoch):
+    for epoch_idx in range(config.ae_epoch if config.train_autoencoder else 1):
         for datum_idx in range(0, len(total_input), batch_size):
             batch_inputs = total_input[datum_idx:datum_idx+batch_size]
             batch_decoder_inputs = total_decoder_input[datum_idx:datum_idx+batch_size]
             batch_input_len = total_length[datum_idx:datum_idx + batch_size]
             batch_labels = total_label[datum_idx:datum_idx+batch_size]
-            batch_z = np.random.uniform(-1, 1, (len(batch_inputs), config.input_dim))
+            batch_z = np.random.normal(0, 1, (len(batch_inputs), config.input_dim))
                 
             assert len(batch_inputs) == len(batch_input_len) == len(batch_labels) == \
             len(batch_z) == len(batch_decoder_inputs), 'not same batch size'
@@ -138,8 +137,9 @@ def train(model, config, sess):
             feed_dict = {model.inputs: batch_inputs, model.input_len: batch_input_len, 
                     model.z: batch_z, model.labels: batch_labels, model.decoder_inputs:
                     batch_decoder_inputs}
-
-            sess.run(model.ae_optimize, feed_dict=feed_dict)
+            
+            if config.train_autoencoder:
+                sess.run(model.ae_optimize, feed_dict=feed_dict)
 
             if (datum_idx % (batch_size*5) == 0) \
                 or (datum_idx + batch_size >= len(total_input)):
@@ -154,16 +154,22 @@ def train(model, config, sess):
                 sys.stdout.write(_progress)
                 sys.stdout.flush()
         print()
-    model.save(config.checkpoint_dir, sess.run(model.global_step))
 
-    # Train GAN
+    if config.train_autoencoder is True:
+        model.save(config.checkpoint_dir, file_name=config.pretrained_ae)
+
+
+    print('## GAN Training')
     for epoch_idx in range(config.gan_epoch):
         for datum_idx in range(0, len(total_input), batch_size):
             batch_inputs = total_input[datum_idx:datum_idx+batch_size]
             batch_decoder_inputs = total_decoder_input[datum_idx:datum_idx+batch_size]
             batch_input_len = total_length[datum_idx:datum_idx + batch_size]
             batch_labels = total_label[datum_idx:datum_idx+batch_size]
-            batch_z = np.random.uniform(-1, 1, (len(batch_inputs), config.input_dim))
+
+            rndstate = random.getstate()
+            random.setstate(rndstate)  
+            batch_z = np.random.normal(0, 1, (len(batch_inputs), config.input_dim))
                 
             assert len(batch_inputs) == len(batch_input_len) == len(batch_labels) == \
             len(batch_z) == len(batch_decoder_inputs), 'not same batch size'
@@ -184,7 +190,7 @@ def train(model, config, sess):
                     config.input_dim))
                 g_decoded_name = ''.join([char_dict[char] for char in np.argmax(g_decoded[0], 1)])
                 if PAD in np.argmax(g_decoded[0], 1):
-                    PAD_idx = np.argwhere(np.argmax(g_decoded[0], 1) == PAD)[0]
+                    PAD_idx = np.argwhere(np.argmax(g_decoded[0], 1) == PAD).flatten().tolist()[0]
                 else:
                     PAD_idx = -1
                 _progress = progress((datum_idx + batch_size) / float(len(total_input)))
@@ -197,7 +203,7 @@ def train(model, config, sess):
                 for decoded in g_decoded:
                     name = ''.join([char_dict[char] for char in np.argmax(decoded, 1)])
                     if PAD in np.argmax(decoded, 1):
-                        PAD_idx = np.argwhere(np.argmax(decoded, 1) == PAD)[0]
+                        PAD_idx = np.argwhere(np.argmax(decoded, 1) == PAD).flatten().tolist()[0]
                     else:
                         PAD_idx = -1
                     f.write(name[:PAD_idx] + '\n')
@@ -210,5 +216,5 @@ def train(model, config, sess):
         # model.train_writer.add_summary(summary, step)
         print()
 
-    # model.save(config.checkpoint_dir, sess.run(model.global_step))
+    model.save(config.checkpoint_dir, sess.run(model.global_step))
 

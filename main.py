@@ -6,7 +6,7 @@ from model import GAN
 
 
 flags = tf.app.flags
-flags.DEFINE_integer("ae_epoch", 100, "Epoch to train")
+flags.DEFINE_integer("ae_epoch", 300, "Epoch to train")
 flags.DEFINE_integer("gan_epoch", 2000, "Epoch to train")
 flags.DEFINE_integer("input_dim", 48 + 3, "Data input dimension + PAD, GO, EOS")
 flags.DEFINE_integer("max_time_step", 50, "Maximum time step of RNN")
@@ -21,8 +21,9 @@ flags.DEFINE_integer("output_dr", 0.5, "Dropout rate of FFNN")
 flags.DEFINE_string("checkpoint_dir", "checkpoint", "Directory name to save the checkpoints [checkpoint]")
 flags.DEFINE_string("results_dir", "results", "Directory name to save the results")
 flags.DEFINE_boolean("is_train", True, "True for training, False for testing")
-flags.DEFINE_boolean("load_autoencoder", False, "True to load pretrained autoencoder")
-flags.DEFINE_boolean("save_generator", False, "True to save resulting generative model")
+flags.DEFINE_boolean("load_autoencoder", True, "True to load pretrained autoencoder")
+flags.DEFINE_boolean("train_autoencoder", False, "True to train autoencoder")
+flags.DEFINE_string("pretrained_ae", "pretrained_ae", "File name of pretrained autoencoder")
 FLAGS = flags.FLAGS
 
 

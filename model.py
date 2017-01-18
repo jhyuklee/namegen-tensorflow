@@ -77,6 +77,9 @@ class GAN(object):
             hidden1 = linear(inputs=z,
                     output_dim=self.hidden_dim * 2,
                     activation=tf.nn.relu, scope='Hidden1')
+            hidden2 = linear(inputs=hidden1,
+                    output_dim=self.hidden_dim * 2,
+                    activation=tf.nn.relu, scope='Hidden2')
             out = linear(inputs=hidden1,
                     output_dim=self.cell_dim * 2, scope='Out')
 
@@ -132,6 +135,10 @@ class GAN(object):
         """
 
         with tf.variable_scope('decoder', reuse=reuse):
+            # make dummy linear for loop function
+            dummy = linear(inputs=tf.constant(1, tf.float32, [100, self.cell_dim]),
+                    output_dim=self.input_dim, scope='rnn_decoder/loop_function/Out', reuse=reuse)
+            
             if feed_prev:
                 def loop_function(prev, i):
                     next =  tf.argmax(linear(inputs=prev, 
@@ -147,14 +154,14 @@ class GAN(object):
             outputs_t = tf.transpose(tf.pack(outputs), [1, 0, 2])
             outputs_tr = tf.reshape(outputs_t, [-1, self.cell_dim])
             decoded = linear(inputs=outputs_tr,
-                    output_dim=self.input_dim, scope='rnn_decoder/loop_function/Out', reuse=reuse)
+                    output_dim=self.input_dim, scope='rnn_decoder/loop_function/Out', reuse=True)
             return decoded
 
 
     def build_model(self):
         # encoder decoder loss
         state = self.encoder(self.inputs)
-        self.decoded = self.decoder(self.decoder_inputs, state)
+        self.decoded = self.decoder(self.decoder_inputs, state, feed_prev=True)
         self.ae_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(self.decoded,
                 tf.reshape(self.inputs, [-1, self.input_dim])))
 
@@ -202,14 +209,20 @@ class GAN(object):
         self.embed_writer = tf.summary.FileWriter('./checkpoint/%s' % self.scope)
         projector.visualize_embeddings(self.embed_writer, self.embed_config)
 
-    def save(self, checkpoint_dir, step):
-        file_name = "%s.model" % self.scope
-        self.saver.save(self.sess, os.path.join(checkpoint_dir, file_name), global_step=step.astype(int))
+    def save(self, checkpoint_dir, step=None, file_name=None):
+        if file_name is None:
+            file_name = "%s.model" % self.scope
+        if step is not None:
+            self.saver.save(self.sess, os.path.join(checkpoint_dir, file_name), global_step=step.astype(int))
+        else:
+            self.saver.save(self.sess, os.path.join(checkpoint_dir, file_name))
         print("Model saved", file_name)
 
-    def load(self, checkpoint_dir, step=None):
-        file_name = "%s.model" % self.scope
-        file_name += ("-" + str(step))
+    def load(self, checkpoint_dir, step=None, file_name=None):
+        if file_name is None:
+            file_name = "%s.model" % self.scope
+        if step is not None:
+            file_name += ("-" + str(step))
         self.saver.restore(self.sess, os.path.join(checkpoint_dir, file_name))
         print("Model loaded", file_name)
 
