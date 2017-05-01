@@ -140,7 +140,7 @@ def train(model, dataset, config):
     if not os.path.exists(config.checkpoint_dir):
         os.makedirs(config.checkpoint_dir)
     if config.load_autoencoder is True:
-        model.load('checkpoint/pretrained_ae', file_name=config.pretrained_ae)
+        model.load('checkpoint/' + config.pretrained_path)
     
     for epoch_idx in range(config.ae_epoch if config.train_autoencoder else 1):
         for datum_idx in range(0, len(inputs), batch_size):
@@ -174,13 +174,17 @@ def train(model, dataset, config):
         print()
 
     if config.train_autoencoder is True:
-        model.save(config.checkpoint_dir, file_name=config.pretrained_ae)
+        model.save(config.checkpoint_dir, file_name='pretrained_ae')
 
 
     print('\n## GAN Training')
     d_iter = 1
     g_iter = 2
     for epoch_idx in range(config.gan_epoch):
+        # Initialize result file
+        f = open(config.results_dir + '/' + model.scope, 'w')
+        f.write('Results of Name Generation\n')
+        f.close()
         for datum_idx in range(0, len(inputs), batch_size):
             batch_inputs = inputs[datum_idx:datum_idx+batch_size]
             batch_decoder_inputs = decoder_inputs[datum_idx:datum_idx+batch_size]
@@ -220,16 +224,16 @@ def train(model, dataset, config):
                 sys.stdout.write(_progress)
                 sys.stdout.flush()
 
-                f = open(config.results_dir + '/' + model.scope, 'w')
-                for decoded, label in zip(g_decoded, batch_labels):
-                    name = ''.join([idx2char[char] for char in np.argmax(decoded, 1)])
-                    if char2idx['PAD'] in np.argmax(decoded, 1):
-                        PAD_idx = np.argwhere(np.argmax(decoded, 1) == char2idx['PAD'])
-                        PAD_idx = PAD_idx.flatten().tolist()[0]
-                    else:
-                        PAD_idx = -1
-                    f.write(name[:PAD_idx] + '\t' + idx2country[np.argmax(label, 0)] + '\n')
-                f.close()
+            f = open(config.results_dir + '/' + model.scope, 'a')
+            for decoded, label in zip(g_decoded, batch_labels):
+                name = ''.join([idx2char[char] for char in np.argmax(decoded, 1)])
+                if char2idx['PAD'] in np.argmax(decoded, 1):
+                    PAD_idx = np.argwhere(np.argmax(decoded, 1) == char2idx['PAD'])
+                    PAD_idx = PAD_idx.flatten().tolist()[0]
+                else:
+                    PAD_idx = -1
+                f.write(name[:PAD_idx] + '\t' + idx2country[np.argmax(label, 0)] + '\n')
+            f.close()
      
         print()
 

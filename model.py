@@ -201,11 +201,7 @@ class GAN(object):
             self.saver.save(self.session, os.path.join(checkpoint_dir, file_name))
         print("Model saved", file_name)
 
-    def load(self, checkpoint_dir, step=None, file_name=None):
-        if file_name is None:
-            file_name = "%s.model" % self.scope
-        if step is not None:
-            file_name += ("-" + str(step))
-        self.saver.restore(self.session, os.path.join(checkpoint_dir, file_name))
-        print("Model loaded", file_name)
+    def load(self, model_path):
+        self.saver.restore(self.session, model_path)
+        print("Model loaded", model_path)
 
