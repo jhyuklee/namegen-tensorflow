@@ -7,19 +7,11 @@ import sys
 import os
 import operator
 import random
+import re
 
 from random import shuffle
 from utils import *
 
-batch_size = 1000
-vocab_size = 51
-PAD = 48
-GO = 49
-EOS = 50
-max_name_len = 50
-class_dim = 127
-
-data_dir = './data'
 
 
 def one_hot(index, length, value=1):
@@ -29,37 +21,65 @@ def one_hot(index, length, value=1):
     return vector
 
 
-def get_name_data(data_dir, config):
-    for root, dir, files in os.walk(data_dir):
+def get_name_data(config):
+    for root, dir, files in os.walk(config.data_dir):
         inputs = []
         inputs_length = []
         decoder_inputs = []
         labels = []
-        char_dict = {}
-        country_dict = {}
+        
+        char2idx = {}
+        idx2char = {}
+        country2idx = {}
+        idx2country = {}
         name_dict = {}
         max_len = 0
         collision_cnt = 0
+        vocab_size = 0
+        PAD, GO, EOS = 0, 0, 0
+
+        max_name_len = 45
+        class_dim = config.class_dim
 
         for file_cnt, file_name in enumerate(sorted(files)):
             data = open(os.path.join(root, file_name))
             file_len = 0
             
-            if file_name == 'characters.txt':
+            if file_name == 'char_to_idx.txt':
                 for k, line in enumerate(data):
                     file_len = k + 1
-                    char_dict[int(line[:-1].split('\t')[1])] = line.split('\t')[0]
-            elif file_name == 'countries.txt':
+                    char, index = line[:-1].split('\t')
+                    char2idx[char] = int(index)
+                    idx2char[int(index)] = char
+                    
+                # Add PAD, GO, EOS
+                char2idx['PAD'] = len(char2idx) 
+                char2idx['GO'] = len(char2idx) 
+                char2idx['EOS'] = len(char2idx) 
+                vocab_size = len(char2idx)
+                idx2char[vocab_size-3] = 'PAD' 
+                idx2char[vocab_size-2] = 'GO'
+                idx2char[vocab_size-1] = 'EOS' 
+
+            elif file_name == 'country_to_idx.txt':
                 for k, line in enumerate(data):
                     file_len = k + 1
-                    country_dict[int(line[:-1].split('\t')[1])] = line.split('\t')[0]
-            elif file_name == 'parsed.txt':
+                    country, index = line[:-1].split('\t')
+                    country2idx[country] = int(index)
+                    idx2country[int(index)] = country
+
+            elif file_name == 'name_to_country.txt':
+                PAD = vocab_size - 3
+                GO = vocab_size - 2
+                EOS = vocab_size - 1
                 for k, line in enumerate(data):
-                    line = line[:-1]
-                    name = [one_hot(int(char), vocab_size) for char in line.split(']')[0][1:].split(', ')]
+                    raw_name, nationality = line[:-1].split('\t')
+                    raw_name = re.sub(r'\ufeff', '', raw_name)    # delete BOM
+                    
+                    name = [one_hot(char2idx[c], vocab_size) for c in raw_name]
                     decoder_name = np.insert(name[:], 0, one_hot(GO, vocab_size), axis=0)
                     decoder_name = np.append(decoder_name[:], [one_hot(EOS, vocab_size)], axis=0)
-                    nationality = one_hot(int(line.split(']')[1].split(' ')[1]), class_dim).astype(float)
+                    nationality = one_hot(country2idx[nationality], class_dim)
                     name_length = len(name)
 
                     if max_len < len(name): # update the maximum length
@@ -68,15 +88,9 @@ def get_name_data(data_dir, config):
                         name.append(one_hot(PAD, vocab_size))
                     while len(decoder_name) != max_name_len:
                         decoder_name = np.append(decoder_name[:], [one_hot(PAD, vocab_size)], axis=0)
-                   
-                    name_string = ''.join([char_dict[char] for char in np.argmax(name, 1)][:name_length])
-                    if name_string in name_dict:
-                        collision_cnt += 1
-                        name_dict[name_string] += 1
-                        # print('collision cnt', str(collision_cnt), name_string[:len(name)])
-                        continue
-                    else:
-                        name_dict[name_string] = 1
+
+                    name_s = ''.join([idx2char[char] for char in np.argmax(name, 1)][:name_length])
+                    name_dict[name_s] = 0
 
                     inputs.append(name)
                     decoder_inputs.append(decoder_name)
@@ -84,35 +98,45 @@ def get_name_data(data_dir, config):
                     inputs_length.append(name_length)
                     file_len = k + 1
             else:
-                print('ignoring file', file_name)
+                pass 
 
-            print('reading', file_name, 'of length', file_len)
+            if file_len > 0:
+                print('reading', file_name, 'of length', file_len)
 
-    print('total data length:', len(inputs), len(labels), len(inputs_length))
-    print('name max length:', max_len, '/', max_name_len)
-    print('unique name set:', len(name_dict))
-    name_sorted = sorted(name_dict.items(), key=operator.itemgetter(1))
-    print(name_sorted[::-1][:10])
-
+    # shuffle
     pairs = list(zip(inputs, inputs_length, labels, decoder_inputs))
     shuffle(pairs)
     inputs, inputs_length, labels, decoder_inputs = zip(*pairs)
 
-    return np.array(inputs), np.array(decoder_inputs), np.array(labels), np.array(inputs_length), char_dict, country_dict
-
-
-total_input, total_decoder_input, total_label, total_length, char_dict, country_dict = get_name_data(data_dir)
-data_size = len(total_input)
-
-print('train:', total_input.shape, total_decoder_input.shape, total_label.shape, total_length.shape)
-print(np.argmax(total_input[0], 1))
-print(np.argmax(total_decoder_input[0], 1), np.argmax(total_label[0], 0), total_length[0])
-print('preprocessing done\n')
-
-
-def train(model, config, sess):
-    tf.global_variables_initializer().run()
+    # To np-array
+    inputs = np.array(inputs)
+    inputs_length = np.array(inputs_length)
+    labels = np.array(labels)
+    decoder_inputs = np.array(decoder_inputs)
     
+    print('vocab size: %d' % vocab_size)
+    print('name max length:', max_len, '/', max_name_len)
+    print('unique name set:', len(name_dict))
+    name_sorted = sorted(name_dict.items(), key=operator.itemgetter(1))
+    print(name_sorted[::-1][:10])
+    print('data shapes:', inputs.shape, decoder_inputs.shape, labels.shape, inputs_length.shape)
+    name_s = ''.join([idx2char[char] for char in np.argmax(inputs[0], 1)][:inputs_length[0]])
+
+    print('\nsample')
+    print(np.argmax(inputs[0], 1))
+    print(np.argmax(decoder_inputs[0], 1))
+    print('name:', name_s)
+    print('label:', idx2country[np.argmax(labels[0], 0)], ', length:', inputs_length[0])
+    print('preprocessing done\n')
+
+    return inputs, decoder_inputs, labels, inputs_length, idx2char, idx2country
+
+
+def train(model, dataset, config):
+    sess = model.session
+    batch_size = config.batch_size
+    inputs, decoder_inputs, labels, inputs_length, char_dict, country_dict = dataset
+
     print('## Autoencoder Training')
     if not os.path.exists(config.checkpoint_dir):
         os.makedirs(config.checkpoint_dir)
@@ -120,11 +144,11 @@ def train(model, config, sess):
         model.load('checkpoint/pretrained_ae', file_name=config.pretrained_ae)
     
     for epoch_idx in range(config.ae_epoch if config.train_autoencoder else 1):
-        for datum_idx in range(0, len(total_input), batch_size):
-            batch_inputs = total_input[datum_idx:datum_idx+batch_size]
-            batch_decoder_inputs = total_decoder_input[datum_idx:datum_idx+batch_size]
-            batch_input_len = total_length[datum_idx:datum_idx + batch_size]
-            batch_labels = total_label[datum_idx:datum_idx+batch_size]
+        for datum_idx in range(0, len(inputs), batch_size):
+            batch_inputs = inputs[datum_idx:datum_idx+batch_size]
+            batch_decoder_inputs = decoder_inputs[datum_idx:datum_idx+batch_size]
+            batch_input_len = inputs_length[datum_idx:datum_idx + batch_size]
+            batch_labels = labels[datum_idx:datum_idx+batch_size]
             
             batch_inputs_noise = np.random.normal(0, 1, (len(batch_inputs), config.char_dim))
                 
@@ -139,13 +163,13 @@ def train(model, config, sess):
                 sess.run(model.ae_optimize, feed_dict=feed_dict)
 
             if (datum_idx % (batch_size*5) == 0) \
-                or (datum_idx + batch_size >= len(total_input)):
+                or (datum_idx + batch_size >= len(inputs)):
                 decoded, ae_loss = sess.run([model.decoded, model.ae_loss], feed_dict=feed_dict)
                 decoded = decoded.reshape((len(batch_inputs), config.max_time_step,
                     config.input_dim))
                 decoded_name = ''.join([char_dict[char] for char in np.argmax(decoded[0], 1)])[:batch_input_len[0]]
                 original_name = ''.join([char_dict[char] for char in np.argmax(batch_inputs[0], 1)])[:batch_input_len[0]]
-                # _progress = progress((datum_idx + batch_size) / float(len(total_input)))
+                # _progress = progress((datum_idx + batch_size) / float(len(inputs)))
                 _progress = "\rEp %d: %s/%s, ae_loss: %.3f" % (epoch_idx, original_name,
                         decoded_name, ae_loss)
                 sys.stdout.write(_progress)
@@ -160,11 +184,11 @@ def train(model, config, sess):
     d_iter = 1
     g_iter = 3
     for epoch_idx in range(config.gan_epoch):
-        for datum_idx in range(0, len(total_input), batch_size):
-            batch_inputs = total_input[datum_idx:datum_idx+batch_size]
-            batch_decoder_inputs = total_decoder_input[datum_idx:datum_idx+batch_size]
-            batch_input_len = total_length[datum_idx:datum_idx + batch_size]
-            batch_labels = total_label[datum_idx:datum_idx+batch_size]
+        for datum_idx in range(0, len(inputs), batch_size):
+            batch_inputs = inputs[datum_idx:datum_idx+batch_size]
+            batch_decoder_inputs = decoder_inputs[datum_idx:datum_idx+batch_size]
+            batch_input_len = inputs_length[datum_idx:datum_idx + batch_size]
+            batch_labels = labels[datum_idx:datum_idx+batch_size]
 
             batch_z = np.random.normal(0, 1, (len(batch_inputs), config.input_dim))
             batch_inputs_noise = np.random.normal(0, 1, (len(batch_inputs), config.char_dim))
@@ -182,7 +206,7 @@ def train(model, config, sess):
                 sess.run(model.g_optimize, feed_dict=feed_dict)
 
             if (datum_idx % (batch_size*5) == 0) \
-                or (datum_idx + batch_size >= len(total_input)):
+                or (datum_idx + batch_size >= len(inputs)):
                 d_loss, g_loss, g_decoded = sess.run([model.d_loss, model.g_loss, model.g_decoded], feed_dict=feed_dict)
                 g_decoded = g_decoded.reshape((len(batch_inputs), config.max_time_step,
                     config.input_dim))
@@ -191,7 +215,7 @@ def train(model, config, sess):
                     PAD_idx = np.argwhere(np.argmax(g_decoded[0], 1) == PAD).flatten().tolist()[0]
                 else:
                     PAD_idx = -1
-                # _progress = progress((datum_idx + batch_size) / float(len(total_input)))
+                # _progress = progress((datum_idx + batch_size) / float(len(inputs)))
                 _progress = "\rEp %d d:%.3f, g:%.3f, %s (%s)" % \
                         (epoch_idx, d_loss, g_loss, g_decoded_name[:PAD_idx], country_dict[np.argmax(batch_labels[0], 0)])
                 sys.stdout.write(_progress)

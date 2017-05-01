@@ -6,44 +6,43 @@ from ops import *
 
 
 class GAN(object):
-    def __init__(self, sess,
-                 input_dim, class_dim, max_time_step, min_grad, max_grad,
-                 cell_dim, cell_layer_num, cell_keep_prob, char_dim,
-                 hidden_dim, output_dr,
-                 scope="NameGeneration", ae_lr=1e-2, gan_lr=1e-4):
+    def __init__(self, config, scope="NameGeneration"):
 
         # session settings
-        self.sess = sess
+        sess_config = tf.ConfigProto()
+        sess_config.gpu_options.allow_growth = True
+        self.session = tf.Session(config=sess_config)
         self.scope = scope
 
         # hyper parameters
-        self.ae_lr = ae_lr
-        self.gan_lr = gan_lr
-        self.min_grad = min_grad
-        self.max_grad = max_grad
+        self.ae_lr = config.ae_lr
+        self.gan_lr = config.gan_lr
+        self.min_grad = config.min_grad
+        self.max_grad = config.max_grad
 
         # model parameters
-        self.max_time_step = max_time_step
-        self.cell_dim = cell_dim
-        self.cell_layer_num = cell_layer_num
-        self.cell_keep_prob = cell_keep_prob
-        self.char_dim = char_dim
-        self.hidden_dim = hidden_dim
-        self.output_dr = output_dr
+        self.max_time_step = config.max_time_step
+        self.cell_dim = config.cell_dim
+        self.cell_layer_num = config.cell_layer_num
+        self.cell_keep_prob = config.cell_keep_prob
+        self.char_dim = config.char_dim
+        self.hidden_dim = config.hidden_dim
+        self.output_dr = config.output_dr
 
         # input data placeholders
-        self.input_dim = input_dim
-        self.class_dim = class_dim
+        self.input_dim = config.input_dim
+        self.class_dim = config.class_dim
         self.inputs = tf.placeholder(tf.float32, [None, self.max_time_step, self.input_dim])
         self.inputs_noise = tf.placeholder(tf.float32, [None, self.char_dim])
         self.input_len = tf.placeholder(tf.int32, [None])
         self.decoder_inputs = tf.placeholder(tf.float32, [None, self.max_time_step, self.input_dim])
         self.z = tf.placeholder(tf.float32, [None, self.input_dim])
-        self.labels = tf.placeholder(tf.float32, [None, self.class_dim])     # future works: conditional gan
+        self.labels = tf.placeholder(tf.float32, [None, self.class_dim])
         self.global_step = tf.Variable(0, name="step", trainable=False)
 
         # model build
         self.build_model()
+        self.session.run(tf.global_variables_initializer())
 
     def generator(self, zc, reuse=False):
         """
