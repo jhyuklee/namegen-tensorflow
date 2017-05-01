@@ -6,8 +6,8 @@ from model import GAN
 
 
 flags = tf.app.flags
-flags.DEFINE_integer("ae_epoch", 500, "Epoch to train")
-flags.DEFINE_integer("gan_epoch", 2000, "Epoch to train")
+flags.DEFINE_integer("ae_epoch", 300, "Epoch to train")
+flags.DEFINE_integer("gan_epoch", 4000, "Epoch to train")
 flags.DEFINE_integer("input_dim", 48 + 3, "Data input dimension + PAD, GO, EOS")
 flags.DEFINE_integer("class_dim", 127, "Data class dimension")
 flags.DEFINE_integer("max_time_step", 50, "Maximum time step of RNN")
@@ -17,7 +17,7 @@ flags.DEFINE_integer("cell_dim", 200, "Dimension of RNN cell")
 flags.DEFINE_integer("cell_layer_num", 1, "The layer number of RNN ")
 flags.DEFINE_integer("cell_keep_prob", 1.0, "Keep prob of RNN cell dropout")
 flags.DEFINE_integer("char_dim", 50, "Dimension of character embedding")
-flags.DEFINE_integer("hidden_dim", 300, "Dimension of hidden layer for FFNN")
+flags.DEFINE_integer("hidden_dim", 200, "Dimension of hidden layer for FFNN")
 flags.DEFINE_integer("output_dr", 0.5, "Dropout rate of FFNN")
 flags.DEFINE_string("checkpoint_dir", "checkpoint", "Directory name to save the checkpoints [checkpoint]")
 flags.DEFINE_string("results_dir", "results", "Directory name to save the results")

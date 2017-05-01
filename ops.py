@@ -10,9 +10,9 @@ def dropout(x, keep_prob):
 
 def lstm_cell(cell_dim, layer_num, keep_prob):
     with tf.variable_scope('LSTM_Cell') as scope:
-        cell = tf.nn.rnn_cell.BasicLSTMCell(cell_dim, forget_bias=1.0, activation=tf.tanh, state_is_tuple=True)
-        cell = tf.nn.rnn_cell.DropoutWrapper(cell, output_keep_prob=keep_prob)
-        return tf.nn.rnn_cell.MultiRNNCell([cell] * layer_num, state_is_tuple=True)
+        cell = tf.contrib.rnn.BasicLSTMCell(cell_dim, forget_bias=1.0, activation=tf.tanh, state_is_tuple=True)
+        cell = tf.contrib.rnn.DropoutWrapper(cell, output_keep_prob=keep_prob)
+        return tf.contrib.rnn.MultiRNNCell([cell] * layer_num, state_is_tuple=True)
 
 
 def rnn_reshape(inputs, input_dim, max_time_step):
@@ -29,22 +29,23 @@ def rnn_reshape(inputs, input_dim, max_time_step):
         """
         inputs_tr = tf.transpose(inputs, [1, 0, 2])
         inputs_tr_reshape = tf.reshape(inputs_tr, [-1, input_dim])
-        inputs_tr_reshape_split = tf.split(0, max_time_step, inputs_tr_reshape)
+        inputs_tr_reshape_split = tf.split(axis=0, num_or_size_splits=max_time_step,
+                value=inputs_tr_reshape)
         return inputs_tr_reshape_split
 
 
 def rnn_model(inputs, input_len, cell):
     with tf.variable_scope('RNN') as scope:
-        outputs, state = tf.nn.rnn(cell, inputs, sequence_length=input_len, dtype=tf.float32, scope=scope)
-        outputs = tf.transpose(tf.pack(outputs), [1, 0, 2])
+        outputs, state = tf.contrib.rnn.static_rnn(cell, inputs, sequence_length=input_len, dtype=tf.float32, scope=scope)
+        outputs = tf.transpose(tf.stack(outputs), [1, 0, 2])
         return outputs, state
 
 
 def bi_rnn_model(inputs, input_len, fw_cell, bw_cell):
     with tf.variable_scope('Bi-RNN') as scope:
-        outputs, _, _ = tf.nn.bidirectional_rnn(fw_cell, bw_cell, inputs,
+        outputs, _, _ = tf.contrib.rnn.bidirectional_rnn(fw_cell, bw_cell, inputs,
                 sequence_length=input_len, dtype=tf.float32, scope=scope)
-        outputs = tf.transpose(tf.pack(outputs), [1, 0, 2])
+        outputs = tf.transpose(tf.stack(outputs), [1, 0, 2])
         return outputs
 
 

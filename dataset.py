@@ -20,11 +20,6 @@ max_name_len = 50
 class_dim = 127
 
 data_dir = './data'
-train_ratio = 0.8
-valid_ratio = 0.1
-test_ratio = 0.1
-disp_epoch = 50
-test_epoch = 200
 
 
 def one_hot(index, length, value=1):
@@ -34,7 +29,7 @@ def one_hot(index, length, value=1):
     return vector
 
 
-def get_name_data(data_dir):
+def get_name_data(data_dir, config):
     for root, dir, files in os.walk(data_dir):
         inputs = []
         inputs_length = []
@@ -122,7 +117,7 @@ def train(model, config, sess):
     if not os.path.exists(config.checkpoint_dir):
         os.makedirs(config.checkpoint_dir)
     if config.load_autoencoder is True:
-        model.load('checkpoint/' + config.pretrained_ae, file_name=config.pretrained_ae)
+        model.load('checkpoint/pretrained_ae', file_name=config.pretrained_ae)
     
     for epoch_idx in range(config.ae_epoch if config.train_autoencoder else 1):
         for datum_idx in range(0, len(total_input), batch_size):
@@ -130,14 +125,15 @@ def train(model, config, sess):
             batch_decoder_inputs = total_decoder_input[datum_idx:datum_idx+batch_size]
             batch_input_len = total_length[datum_idx:datum_idx + batch_size]
             batch_labels = total_label[datum_idx:datum_idx+batch_size]
-            batch_z = np.random.normal(0, 1, (len(batch_inputs), config.input_dim))
+            
+            batch_inputs_noise = np.random.normal(0, 1, (len(batch_inputs), config.char_dim))
                 
             assert len(batch_inputs) == len(batch_input_len) == len(batch_labels) == \
-            len(batch_z) == len(batch_decoder_inputs), 'not same batch size'
+            len(batch_inputs_noise) == len(batch_decoder_inputs), 'not the same batch size'
 
             feed_dict = {model.inputs: batch_inputs, model.input_len: batch_input_len, 
-                    model.z: batch_z, model.labels: batch_labels, model.decoder_inputs:
-                    batch_decoder_inputs}
+                    model.inputs_noise: batch_inputs_noise, model.labels: batch_labels, 
+                    model.decoder_inputs: batch_decoder_inputs}
             
             if config.train_autoencoder:
                 sess.run(model.ae_optimize, feed_dict=feed_dict)
@@ -149,9 +145,9 @@ def train(model, config, sess):
                     config.input_dim))
                 decoded_name = ''.join([char_dict[char] for char in np.argmax(decoded[0], 1)])[:batch_input_len[0]]
                 original_name = ''.join([char_dict[char] for char in np.argmax(batch_inputs[0], 1)])[:batch_input_len[0]]
-                _progress = progress((datum_idx + batch_size) / float(len(total_input)))
-                _progress += " Training decoded: %s/%s, ae_loss: %.3f, epoch: %d" % (original_name,
-                        decoded_name, ae_loss, epoch_idx)
+                # _progress = progress((datum_idx + batch_size) / float(len(total_input)))
+                _progress = "\rEp %d: %s/%s, ae_loss: %.3f" % (epoch_idx, original_name,
+                        decoded_name, ae_loss)
                 sys.stdout.write(_progress)
                 sys.stdout.flush()
         print()
@@ -161,6 +157,8 @@ def train(model, config, sess):
 
 
     print('## GAN Training')
+    d_iter = 1
+    g_iter = 3
     for epoch_idx in range(config.gan_epoch):
         for datum_idx in range(0, len(total_input), batch_size):
             batch_inputs = total_input[datum_idx:datum_idx+batch_size]
@@ -168,21 +166,20 @@ def train(model, config, sess):
             batch_input_len = total_length[datum_idx:datum_idx + batch_size]
             batch_labels = total_label[datum_idx:datum_idx+batch_size]
 
-            rndstate = random.getstate()
-            random.setstate(rndstate)  
             batch_z = np.random.normal(0, 1, (len(batch_inputs), config.input_dim))
+            batch_inputs_noise = np.random.normal(0, 1, (len(batch_inputs), config.char_dim))
                 
             assert len(batch_inputs) == len(batch_input_len) == len(batch_labels) == \
-            len(batch_z) == len(batch_decoder_inputs), 'not same batch size'
+            len(batch_z) == len(batch_decoder_inputs), 'not the same batch size'
 
             feed_dict = {model.inputs: batch_inputs, model.input_len: batch_input_len, 
                     model.z: batch_z, model.labels: batch_labels, model.decoder_inputs:
-                    batch_decoder_inputs}
+                    batch_decoder_inputs, model.inputs_noise: batch_inputs_noise}
 
-            sess.run([model.d_optimize_real, model.d_optimize_fake], feed_dict=feed_dict)
-            sess.run(model.g_optimize, feed_dict=feed_dict)
-            sess.run(model.g_optimize, feed_dict=feed_dict)
-            sess.run(model.g_optimize, feed_dict=feed_dict)
+            for _ in range(d_iter):
+                sess.run(model.d_optimize, feed_dict=feed_dict)
+            for _ in range(g_iter):
+                sess.run(model.g_optimize, feed_dict=feed_dict)
 
             if (datum_idx % (batch_size*5) == 0) \
                 or (datum_idx + batch_size >= len(total_input)):
@@ -194,9 +191,9 @@ def train(model, config, sess):
                     PAD_idx = np.argwhere(np.argmax(g_decoded[0], 1) == PAD).flatten().tolist()[0]
                 else:
                     PAD_idx = -1
-                _progress = progress((datum_idx + batch_size) / float(len(total_input)))
-                _progress += " Training d_loss: %.3f, g_loss: %.3f, g_decoded: %s (%s), epoch: %d" % \
-                        (d_loss, g_loss, g_decoded_name[:PAD_idx], country_dict[np.argmax(batch_labels[0], 0)], epoch_idx)
+                # _progress = progress((datum_idx + batch_size) / float(len(total_input)))
+                _progress = "\rEp %d d:%.3f, g:%.3f, %s (%s)" % \
+                        (epoch_idx, d_loss, g_loss, g_decoded_name[:PAD_idx], country_dict[np.argmax(batch_labels[0], 0)])
                 sys.stdout.write(_progress)
                 sys.stdout.flush()
 
@@ -210,9 +207,6 @@ def train(model, config, sess):
                     f.write(name[:PAD_idx] + '\t' + country_dict[np.argmax(label, 0)] + '\n')
                 f.close()
      
-        if epoch_idx % test_epoch == 0 or epoch_idx == config.gan_epoch - 1:
-            pass
-
         # summary = sess.run(model.merged_summary, feed_dict=feed_dict)
         # model.train_writer.add_summary(summary, step)
         print()
