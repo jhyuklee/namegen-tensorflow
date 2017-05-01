@@ -191,22 +191,14 @@ class GAN(object):
 
         model_vars = [v for v in tf.global_variables()]
         self.saver = tf.train.Saver(model_vars)
-        '''
-        self.merged_summary = tf.summary.merge_all()
-        self.train_writer = tf.summary.FileWriter('./tensorboard/%s/train' % self.scope, self.sess.graph)
-        self.valid_writer = tf.summary.FileWriter('./tensorboard/%s/valid' % self.scope, self.sess.graph)
-        self.test_writer = tf.summary.FileWriter('./tensorboard/%s/test' % self.scope, self.sess.graph)
-        self.embed_writer = tf.summary.FileWriter('./checkpoint/%s' % self.scope)
-        projector.visualize_embeddings(self.embed_writer, self.embed_config)
-        '''
 
     def save(self, checkpoint_dir, step=None, file_name=None):
         if file_name is None:
             file_name = "%s.model" % self.scope
         if step is not None:
-            self.saver.save(self.sess, os.path.join(checkpoint_dir, file_name), global_step=step.astype(int))
+            self.saver.save(self.session, os.path.join(checkpoint_dir, file_name), global_step=step.astype(int))
         else:
-            self.saver.save(self.sess, os.path.join(checkpoint_dir, file_name))
+            self.saver.save(self.session, os.path.join(checkpoint_dir, file_name))
         print("Model saved", file_name)
 
     def load(self, checkpoint_dir, step=None, file_name=None):
@@ -214,6 +206,6 @@ class GAN(object):
             file_name = "%s.model" % self.scope
         if step is not None:
             file_name += ("-" + str(step))
-        self.saver.restore(self.sess, os.path.join(checkpoint_dir, file_name))
+        self.saver.restore(self.session, os.path.join(checkpoint_dir, file_name))
         print("Model loaded", file_name)
 

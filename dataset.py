@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-
 import tensorflow as tf
 import numpy as np
 import time
@@ -11,7 +9,6 @@ import re
 
 from random import shuffle
 from utils import *
-
 
 
 def one_hot(index, length, value=1):
@@ -34,7 +31,6 @@ def get_name_data(config):
         idx2country = {}
         name_dict = {}
         max_len = 0
-        collision_cnt = 0
         vocab_size = 0
         PAD, GO, EOS = 0, 0, 0
 
@@ -114,6 +110,7 @@ def get_name_data(config):
     labels = np.array(labels)
     decoder_inputs = np.array(decoder_inputs)
     
+    print('\n## Data stats')
     print('vocab size: %d' % vocab_size)
     print('name max length:', max_len, '/', max_name_len)
     print('unique name set:', len(name_dict))
@@ -122,22 +119,24 @@ def get_name_data(config):
     print('data shapes:', inputs.shape, decoder_inputs.shape, labels.shape, inputs_length.shape)
     name_s = ''.join([idx2char[char] for char in np.argmax(inputs[0], 1)][:inputs_length[0]])
 
-    print('\nsample')
+    print('\n## Data sample')
     print(np.argmax(inputs[0], 1))
     print(np.argmax(decoder_inputs[0], 1))
     print('name:', name_s)
-    print('label:', idx2country[np.argmax(labels[0], 0)], ', length:', inputs_length[0])
-    print('preprocessing done\n')
+    print('label:', idx2country[np.argmax(labels[0], 0)] + ', length:', inputs_length[0], '\n')
 
-    return inputs, decoder_inputs, labels, inputs_length, idx2char, idx2country
+    return (inputs, decoder_inputs, labels, inputs_length, 
+            [idx2char, char2idx], [idx2country, country2idx])
 
 
 def train(model, dataset, config):
     sess = model.session
     batch_size = config.batch_size
-    inputs, decoder_inputs, labels, inputs_length, char_dict, country_dict = dataset
+    inputs, decoder_inputs, labels, inputs_length, char_set, country_set = dataset
+    idx2char, char2idx = char_set
+    idx2country, country2idx = country_set
 
-    print('## Autoencoder Training')
+    print('\n## Autoencoder Training')
     if not os.path.exists(config.checkpoint_dir):
         os.makedirs(config.checkpoint_dir)
     if config.load_autoencoder is True:
@@ -149,7 +148,6 @@ def train(model, dataset, config):
             batch_decoder_inputs = decoder_inputs[datum_idx:datum_idx+batch_size]
             batch_input_len = inputs_length[datum_idx:datum_idx + batch_size]
             batch_labels = labels[datum_idx:datum_idx+batch_size]
-            
             batch_inputs_noise = np.random.normal(0, 1, (len(batch_inputs), config.char_dim))
                 
             assert len(batch_inputs) == len(batch_input_len) == len(batch_labels) == \
@@ -162,14 +160,13 @@ def train(model, dataset, config):
             if config.train_autoencoder:
                 sess.run(model.ae_optimize, feed_dict=feed_dict)
 
-            if (datum_idx % (batch_size*5) == 0) \
-                or (datum_idx + batch_size >= len(inputs)):
+            if (datum_idx % (batch_size*5) == 0) or (datum_idx + batch_size >= len(inputs)):
                 decoded, ae_loss = sess.run([model.decoded, model.ae_loss], feed_dict=feed_dict)
-                decoded = decoded.reshape((len(batch_inputs), config.max_time_step,
-                    config.input_dim))
-                decoded_name = ''.join([char_dict[char] for char in np.argmax(decoded[0], 1)])[:batch_input_len[0]]
-                original_name = ''.join([char_dict[char] for char in np.argmax(batch_inputs[0], 1)])[:batch_input_len[0]]
-                # _progress = progress((datum_idx + batch_size) / float(len(inputs)))
+                decoded = decoded.reshape((len(batch_inputs), config.max_time_step, config.input_dim))
+                decoded_name = ''.join([idx2char[char] 
+                    for char in np.argmax(decoded[0], 1)])[:batch_input_len[0]]
+                original_name = ''.join([idx2char[char] 
+                    for char in np.argmax(batch_inputs[0], 1)])[:batch_input_len[0]]
                 _progress = "\rEp %d: %s/%s, ae_loss: %.3f" % (epoch_idx, original_name,
                         decoded_name, ae_loss)
                 sys.stdout.write(_progress)
@@ -180,9 +177,9 @@ def train(model, dataset, config):
         model.save(config.checkpoint_dir, file_name=config.pretrained_ae)
 
 
-    print('## GAN Training')
+    print('\n## GAN Training')
     d_iter = 1
-    g_iter = 3
+    g_iter = 1
     for epoch_idx in range(config.gan_epoch):
         for datum_idx in range(0, len(inputs), batch_size):
             batch_inputs = inputs[datum_idx:datum_idx+batch_size]
@@ -205,34 +202,35 @@ def train(model, dataset, config):
             for _ in range(g_iter):
                 sess.run(model.g_optimize, feed_dict=feed_dict)
 
-            if (datum_idx % (batch_size*5) == 0) \
-                or (datum_idx + batch_size >= len(inputs)):
-                d_loss, g_loss, g_decoded = sess.run([model.d_loss, model.g_loss, model.g_decoded], feed_dict=feed_dict)
-                g_decoded = g_decoded.reshape((len(batch_inputs), config.max_time_step,
+            if (datum_idx % (batch_size*5) == 0) or (datum_idx + batch_size >= len(inputs)):
+                d_loss, g_loss, g_decoded = sess.run([model.d_loss, model.g_loss, model.g_decoded], 
+                        feed_dict=feed_dict)
+                g_decoded = g_decoded.reshape((len(batch_inputs), config.max_time_step, 
                     config.input_dim))
-                g_decoded_name = ''.join([char_dict[char] for char in np.argmax(g_decoded[0], 1)])
-                if PAD in np.argmax(g_decoded[0], 1):
-                    PAD_idx = np.argwhere(np.argmax(g_decoded[0], 1) == PAD).flatten().tolist()[0]
+                g_decoded_name = ''.join([idx2char[char] for char in np.argmax(g_decoded[0], 1)])
+                if char2idx['PAD'] in np.argmax(g_decoded[0], 1):
+                    PAD_idx = np.argwhere(np.argmax(g_decoded[0], 1) == char2idx['PAD'])
+                    PAD_idx = PAD_idx.flatten().tolist()[0]
                 else:
                     PAD_idx = -1
                 # _progress = progress((datum_idx + batch_size) / float(len(inputs)))
                 _progress = "\rEp %d d:%.3f, g:%.3f, %s (%s)" % \
-                        (epoch_idx, d_loss, g_loss, g_decoded_name[:PAD_idx], country_dict[np.argmax(batch_labels[0], 0)])
+                        (epoch_idx, d_loss, g_loss, g_decoded_name[:PAD_idx], 
+                                idx2country[np.argmax(batch_labels[0], 0)])
                 sys.stdout.write(_progress)
                 sys.stdout.flush()
 
                 f = open(config.results_dir + '/' + model.scope, 'w')
                 for decoded, label in zip(g_decoded, batch_labels):
-                    name = ''.join([char_dict[char] for char in np.argmax(decoded, 1)])
-                    if PAD in np.argmax(decoded, 1):
-                        PAD_idx = np.argwhere(np.argmax(decoded, 1) == PAD).flatten().tolist()[0]
+                    name = ''.join([idx2char[char] for char in np.argmax(decoded, 1)])
+                    if char2idx['PAD'] in np.argmax(decoded, 1):
+                        PAD_idx = np.argwhere(np.argmax(decoded, 1) == char2idx['PAD'])
+                        PAD_idx = PAD_idx.flatten().tolist()[0]
                     else:
                         PAD_idx = -1
-                    f.write(name[:PAD_idx] + '\t' + country_dict[np.argmax(label, 0)] + '\n')
+                    f.write(name[:PAD_idx] + '\t' + idx2country[np.argmax(label, 0)] + '\n')
                 f.close()
      
-        # summary = sess.run(model.merged_summary, feed_dict=feed_dict)
-        # model.train_writer.add_summary(summary, step)
         print()
 
     model.save(config.checkpoint_dir, sess.run(model.global_step))

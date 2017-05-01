@@ -6,7 +6,7 @@ from model import GAN
 
 
 flags = tf.app.flags
-flags.DEFINE_integer("ae_epoch", 300, "Epoch to train")
+flags.DEFINE_integer("ae_epoch", 100, "Epoch to train")
 flags.DEFINE_integer("gan_epoch", 4000, "Epoch to train")
 flags.DEFINE_integer("input_dim", 43, "Data input dimension + PAD, GO, EOS")
 flags.DEFINE_integer("class_dim", 127, "Data class dimension")
@@ -19,15 +19,15 @@ flags.DEFINE_integer("cell_layer_num", 1, "The layer number of RNN ")
 flags.DEFINE_integer("char_dim", 50, "Dimension of character embedding")
 flags.DEFINE_integer("hidden_dim", 200, "Dimension of hidden layer for FFNN")
 flags.DEFINE_float("ae_lr", 1e-2, "Learning rate of autoencoder")
-flags.DEFINE_float("gan_lr", 1e-4, "Learning rate of GAN")
+flags.DEFINE_float("gan_lr", 1e-3, "Learning rate of GAN")
 flags.DEFINE_float("output_dr", 0.5, "Dropout rate of FFNN")
 flags.DEFINE_float("cell_keep_prob", 0.5, "Keep prob of RNN cell dropout")
 flags.DEFINE_string("checkpoint_dir", "checkpoint", "Directory name to save the checkpoints")
 flags.DEFINE_string("results_dir", "results", "Directory name to save the results")
 flags.DEFINE_string("data_dir", "data", "Directory name to save the results")
 flags.DEFINE_boolean("is_train", True, "True for training, False for testing")
-flags.DEFINE_boolean("load_autoencoder", False, "True to load pretrained autoencoder")
-flags.DEFINE_boolean("train_autoencoder", True, "True to train autoencoder")
+flags.DEFINE_boolean("load_autoencoder", True, "True to load pretrained autoencoder")
+flags.DEFINE_boolean("train_autoencoder", False, "True to train autoencoder")
 flags.DEFINE_string("pretrained_ae", "pretrained_ae", "File name of pretrained autoencoder")
 FLAGS = flags.FLAGS
 
