@@ -26,8 +26,8 @@ flags.DEFINE_string("checkpoint_dir", "checkpoint", "Directory name to save the 
 flags.DEFINE_string("results_dir", "results", "Directory name to save the results")
 flags.DEFINE_string("data_dir", "data", "Directory name to save the results")
 flags.DEFINE_boolean("is_train", True, "True for training, False for testing")
-flags.DEFINE_boolean("load_autoencoder", True, "True to load pretrained autoencoder")
-flags.DEFINE_boolean("train_autoencoder", False, "True to train autoencoder")
+flags.DEFINE_boolean("load_autoencoder", False, "True to load pretrained autoencoder")
+flags.DEFINE_boolean("train_autoencoder", True, "True to train autoencoder")
 flags.DEFINE_string("pretrained_ae", "pretrained_ae", "File name of pretrained autoencoder")
 FLAGS = flags.FLAGS
 

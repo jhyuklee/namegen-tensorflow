@@ -149,10 +149,10 @@ class GAN(object):
                 labels=tf.reshape(self.inputs, [-1, self.input_dim])))
 
         # generator logits
-        h_hat = self.generator(tf.concat([self.z, self.labels], 1))
-        # h_hat = self.generator(self.z)
-        logits_fake = self.discriminator(tf.concat([h_hat, self.labels], 1))
-        # logits_fake = self.discriminator(h_hat)
+        # h_hat = self.generator(tf.concat([self.z, self.labels], 1))
+        h_hat = self.generator(self.z)
+        # logits_fake = self.discriminator(tf.concat([h_hat, self.labels], 1))
+        logits_fake = self.discriminator(h_hat)
         c_hat, h_hat = tf.split(axis=1, num_or_size_splits=2, value=h_hat)
         self.g_decoded = self.decoder(self.decoder_inputs, ((c_hat, h_hat),),
                 feed_prev=True, reuse=True)
@@ -160,8 +160,8 @@ class GAN(object):
         # discriminator logits
         h = self.encoder(self.inputs, reuse=True)
         h = tf.concat([h[0][0], h[0][1]], 1)
-        logits_real = self.discriminator(tf.concat([h, self.labels], 1), reuse=True)
-        # logits_real = self.discriminator(h, reuse=True)
+        # logits_real = self.discriminator(tf.concat([h, self.labels], 1), reuse=True)
+        logits_real = self.discriminator(h, reuse=True)
 
         # compute loss
         d_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=logits_real,

@@ -179,7 +179,7 @@ def train(model, dataset, config):
 
     print('\n## GAN Training')
     d_iter = 1
-    g_iter = 1
+    g_iter = 2
     for epoch_idx in range(config.gan_epoch):
         for datum_idx in range(0, len(inputs), batch_size):
             batch_inputs = inputs[datum_idx:datum_idx+batch_size]
