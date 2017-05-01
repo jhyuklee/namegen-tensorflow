@@ -1,6 +1,6 @@
 __pycache__
-.pyc
-.swp
+*.pyc
+*.swp
 
 tensorboard/
 checkpoint/
