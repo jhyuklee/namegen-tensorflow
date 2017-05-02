@@ -24,7 +24,8 @@ $ sudo pip install --upgrade
 # Download the dataset
 
 # Modules
-1. Encoder :
+1. Encoder
+
 | Division | representation | specifics                                   |
 |:--------:|:--------------:|:-------------------------------------------:|
 |   input  |       x        | character-level embedding of name strings   |
@@ -33,6 +34,7 @@ $ sudo pip install --upgrade
 => Why 2 x cell-dim even though the model is not Bi-LSTM?
 
 2. Decoder
+
 | Division | representation | specifics                                   |
 |:--------:|:--------------:|:-------------------------------------------:|
 |  input   |       h        | vector-level representation of name strings |
@@ -40,6 +42,7 @@ $ sudo pip install --upgrade
 |  model   |      RNN       | input-dim |
 
 3. Generator (G)
+
 | Division | representation | specifics                             |
 |:--------:|:--------------:|:-------------------------------------:|
 |  input   |      Zc        | Random input vector with class info   |
@@ -47,6 +50,7 @@ $ sudo pip install --upgrade
 |  model   |      Linear    | (z_dim + class_dim) => (cell_dim * 2) |
 
 4. Discriminator (D)
+
 | Division | representation | specifics                                    |
 |:--------:|:--------------:|:--------------------------------------------:|
 |  input   |      Xc        | Hidden vector for name-class representation  |
