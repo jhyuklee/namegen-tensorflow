@@ -4,7 +4,7 @@ from time import gmtime, strftime
 from dataset import *
 from model import GAN
 
-
+# Flag definition
 flags = tf.app.flags
 flags.DEFINE_integer("ae_epoch", 100, "Epoch to train")
 flags.DEFINE_integer("gan_epoch", 4000, "Epoch to train")
@@ -31,23 +31,23 @@ flags.DEFINE_boolean("train_autoencoder", False, "True to train autoencoder")
 flags.DEFINE_string("pretrained_path", "ae_no_class/pretrained_ae", "Path of pretrained ae")
 FLAGS = flags.FLAGS
 
-
+# Create Generative model
 def create_model(config):
     scope = 'NameGeneration-' + strftime("%Y%m%d%H%M%S", gmtime())
     config.checkpoint_dir += '/%s' % scope
     gan_model = GAN(config, scope=scope)
     return gan_model
 
-
+# Main function
 def main(_):
     print(flags.FLAGS.__flags, '\n')
-    
+
     dataset = get_name_data(FLAGS)
     gan_model = create_model(FLAGS)
     if FLAGS.is_train:
         train(gan_model, dataset, FLAGS)
 
-
+# If current file is the main function, run application
 if __name__ == '__main__':
     tf.app.run()
 
