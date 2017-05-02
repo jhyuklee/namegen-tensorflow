@@ -4,7 +4,7 @@ import os
 
 from ops import *
 
-
+# Generative Adversarial Network
 class GAN(object):
     def __init__(self, config, scope="NameGeneration"):
 
@@ -17,6 +17,8 @@ class GAN(object):
         # hyper parameters
         self.ae_lr = config.ae_lr
         self.gan_lr = config.gan_lr
+
+        # For gradient clipping(?)
         self.min_grad = config.min_grad
         self.max_grad = config.max_grad
 
@@ -95,10 +97,10 @@ class GAN(object):
         with tf.variable_scope('encoder', reuse=reuse):
             cell = lstm_cell(self.cell_dim, self.cell_layer_num, self.cell_keep_prob)
             inputs_embed, projector, self.embed_config  = embedding_lookup(
-                    inputs=tf.argmax(inputs, 2), 
+                    inputs=tf.argmax(inputs, 2),
                     voca_size=self.input_dim,
-                    embedding_dim=self.char_dim, 
-                    visual_dir='checkpoint/%s' % self.scope, 
+                    embedding_dim=self.char_dim,
+                    visual_dir='checkpoint/%s' % self.scope,
                     scope='Character')
             if inputs_noise is not None:
                 inputs_noise = tf.expand_dims(inputs_noise, 1)
@@ -121,10 +123,10 @@ class GAN(object):
             # make dummy linear for loop function
             dummy = linear(inputs=tf.constant(1, tf.float32, [100, self.cell_dim]),
                     output_dim=self.input_dim, scope='rnn_decoder/loop_function/Out', reuse=reuse)
-            
+
             if feed_prev:
                 def loop_function(prev, i):
-                    next =  tf.argmax(linear(inputs=prev, 
+                    next =  tf.argmax(linear(inputs=prev,
                         output_dim=self.input_dim,
                         scope='Out', reuse=True), 1)
                     return tf.one_hot(next, self.input_dim)
@@ -156,7 +158,7 @@ class GAN(object):
         c_hat, h_hat = tf.split(axis=1, num_or_size_splits=2, value=h_hat)
         self.g_decoded = self.decoder(self.decoder_inputs, ((c_hat, h_hat),),
                 feed_prev=True, reuse=True)
-        
+
         # discriminator logits
         h = self.encoder(self.inputs, reuse=True)
         h = tf.concat([h[0][0], h[0][1]], 1)
@@ -174,7 +176,7 @@ class GAN(object):
 
         tf.summary.scalar('Discriminator Loss', self.d_loss)
         tf.summary.scalar('Generator Loss', self.g_loss)
-        
+
         self.params = tf.trainable_variables()
         d_vars = [var for var in self.params if 'discriminator' in var.name]
         g_vars = [var for var in self.params if 'generator' in var.name]
