@@ -31,7 +31,8 @@ $ sudo pip install --upgrade
 |   input  |       x        | character-level embedding of name strings   |
 |  output  |       h        | vector-level representation of name strings |
 |   model  |      RNN       | input-size * time-step -> (2 x cell-dim)    |
-=> Why 2 x cell-dim even though the model is not Bi-LSTM?
+
+* Why 2 x cell-dim even though the model is not Bi-LSTM?
 
 2. Decoder
 
