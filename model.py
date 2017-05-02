@@ -2,6 +2,7 @@ import tensorflow as tf
 import numpy as np
 import os
 
+# Importing RNN operation functions
 from ops import *
 
 # Generative Adversarial Network
@@ -18,7 +19,7 @@ class GAN(object):
         self.ae_lr = config.ae_lr
         self.gan_lr = config.gan_lr
 
-        # For gradient clipping(?)
+        # For gradient clipping(?) => Check further
         self.min_grad = config.min_grad
         self.max_grad = config.max_grad
 
@@ -46,6 +47,7 @@ class GAN(object):
         self.build_model()
         self.session.run(tf.global_variables_initializer())
 
+    # G-model : Definition of the generator = Generate a authentic encoded vector representing a name
     def generator(self, zc, reuse=False):
         """
         Args:
@@ -64,6 +66,7 @@ class GAN(object):
 
             return out
 
+    # D-model : Definition of the discriminator = Discriminate whether the encoded vector is real or not
     def discriminator(self, inputs, reuse=False):
         """
         Args:
@@ -85,10 +88,13 @@ class GAN(object):
 
             return logits
 
+    # Enc-model : Definition of Encoder = Represents the input string name into a real-value vector
     def encoder(self, inputs, inputs_noise=None, reuse=False):
         """
         Args:
             inputs: inputs to encode with size [batch_size, time_steps, input_dim]
+            time_steps = max length of input character, which will be the max lenght of the name string.
+            input_dim  = dimensions of representation embedding of each character.
 
         Returns:
             state: hidden state vector of encoder with size [batch_size, cell_dim*2]
@@ -109,6 +115,7 @@ class GAN(object):
             outputs, state = rnn_model(inputs_reshape, self.input_len, cell)
             return state
 
+    # Dec-model : Definition of Decoder = Converts the input vector into an encoded name vector
     def decoder(self, inputs, state, feed_prev=False, reuse=None):
         """
         Args:
