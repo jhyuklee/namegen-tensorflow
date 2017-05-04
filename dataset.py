@@ -159,22 +159,24 @@ def train(model, dataset, config):
             
             if config.train_autoencoder:
                 sess.run(model.ae_optimize, feed_dict=feed_dict)
+                sess.run(model.cf_optimize, feed_dict=feed_dict)
 
             if (datum_idx % (batch_size*5) == 0) or (datum_idx + batch_size >= len(inputs)):
-                decoded, ae_loss = sess.run([model.decoded, model.ae_loss], feed_dict=feed_dict)
+                decoded, ae_loss, cf_acc = sess.run([model.decoded, model.ae_loss, model.cf_acc],
+                        feed_dict=feed_dict)
                 decoded = decoded.reshape((len(batch_inputs), config.max_time_step, config.input_dim))
                 decoded_name = ''.join([idx2char[char] 
                     for char in np.argmax(decoded[0], 1)])[:batch_input_len[0]]
                 original_name = ''.join([idx2char[char] 
                     for char in np.argmax(batch_inputs[0], 1)])[:batch_input_len[0]]
-                _progress = "\rEp %d: %s/%s, ae_loss: %.3f" % (epoch_idx, original_name,
-                        decoded_name, ae_loss)
+                _progress = "\rEp %d: %s/%s, ae_loss: %.3f, cf_acc: %.3f" % (
+                        epoch_idx, original_name, decoded_name, ae_loss, cf_acc)
                 sys.stdout.write(_progress)
                 sys.stdout.flush()
         print()
 
     if config.train_autoencoder is True:
-        model.save(config.checkpoint_dir, file_name='pretrained_ae')
+        model.save(config.checkpoint_dir)
 
 
     print('\n## GAN Training')
@@ -237,5 +239,5 @@ def train(model, dataset, config):
      
         print()
 
-    model.save(config.checkpoint_dir, sess.run(model.global_step))
+    model.save(config.checkpoint_dir)
 
