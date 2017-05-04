@@ -49,7 +49,7 @@ $ sudo pip install --upgrade
 |:--------:|:--------------:|:-------------------------------------------:|
 |  input   |       h        | vector-level representation of name strings |
 | output   |     x-hat      | near-value reconstruction of 'x'            |
-|  model   |      RNN       | input-dim |
+|  model   |      RNN       | (cell-dim) -> input-size * time-step        |
 
 ## 3. Generator (G)
 
