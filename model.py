@@ -74,6 +74,9 @@ class GAN(object):
 
         Returns:
             logits: unnormalized output probabilities of size [batch_size]
+
+        PS:
+            As the discriminator's purpose is to perform binary classification, output dimension = 1
         """
 
         with tf.variable_scope('discriminator', reuse=reuse):

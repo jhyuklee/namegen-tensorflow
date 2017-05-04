@@ -21,10 +21,17 @@ $ pip install tensorflow-gpu
 $ sudo -H pip install tensorflow-gpu
 $ sudo pip install --upgrade
 ```
-# Download the dataset
-
 # Modules
+
+![alt_tag](images/LSTM-h.png)
+![alt_tag](images/LSTM-C.png)
+- Each name string will be represented into an encoded vector consisted of (h+c)
+- h : LSTM's hidden state
+
 1. Encoder
+
+- Encodes the given string value into a hidden vector h
+- Output of the model = (2 x cell-dim) = (LSTM's h) + (LSTM's c)
 
 | Division | representation | specifics                                   |
 |:--------:|:--------------:|:-------------------------------------------:|
@@ -32,9 +39,10 @@ $ sudo pip install --upgrade
 |  output  |       h        | vector-level representation of name strings |
 |   model  |      RNN       | input-size * time-step -> (2 x cell-dim)    |
 
-* Why 2 x cell-dim even though the model is not Bi-LSTM?
-
 2. Decoder
+
+- Decodes the given hidden vector into an approximated string value x-hat
+- Output of the model will (time_steps x input_dim)
 
 | Division | representation | specifics                                   |
 |:--------:|:--------------:|:-------------------------------------------:|
@@ -44,6 +52,9 @@ $ sudo pip install --upgrade
 
 3. Generator (G)
 
+- Generates a fake hidden vector representing a name string
+- Output of the model = (2 x cell-dim) = (LSTM's h) + (LSTM's c)
+
 | Division | representation | specifics                             |
 |:--------:|:--------------:|:-------------------------------------:|
 |  input   |      Zc        | Random input vector with class info   |
@@ -52,10 +63,11 @@ $ sudo pip install --upgrade
 
 4. Discriminator (D)
 
-| Division | representation | specifics                                    |
-|:--------:|:--------------:|:--------------------------------------------:|
-|  input   |      Xc        | Hidden vector for name-class representation  |
-| output   |      Pc        | Probabilities of the                |
-|  model   |      Linear    | (cell_dim * 2  + class_dim) => p             |
+- Binary classification. Define whether the given input is fake or not.
 
+| Division | representation | specifics                                      |
+|:--------:|:--------------:|:----------------------------------------------:|
+|  input   |      Xc        | Hidden vector for name-class representation    |
+| output   |      Pc        | Probabilities whether the input is fake or not |
+|  model   |      Linear    | (cell_dim * 2  + class_dim) => p               |
 
