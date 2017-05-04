@@ -21,6 +21,14 @@ $ pip install tensorflow-gpu
 $ sudo -H pip install tensorflow-gpu
 $ sudo pip install --upgrade
 ```
+
+## Directories
+- utils.py      : Progress bar function
+- model.py      : GAN(encoder+decoder+generator+discriminator model) + load + save
+- ops.py        : Basic functions for rnn, lstm, feed-forward neural network, dropout
+- dataset.py    : Crawling name dataset and train the autoencoder(encoder + decoder) model
+- main.py       : Training script for the GAN model (requires pretrained autoencoder model from dataset.py)
+
 # Modules
 
 ![alt_tag](images/LSTM-h.png)
