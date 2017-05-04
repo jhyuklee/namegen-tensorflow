@@ -29,7 +29,7 @@ $ sudo pip install --upgrade
 - h : LSTM's hidden state
 - C : LSTM's output state
 
-##1. Encoder
+## 1. Encoder
 
 - Encodes the given string value into a hidden vector h
 - Output of the model = (2 x cell-dim) = (LSTM's h) + (LSTM's c)
@@ -40,7 +40,7 @@ $ sudo pip install --upgrade
 |  output  |       h        | vector-level representation of name strings |
 |   model  |      RNN       | input-size * time-step -> (2 x cell-dim)    |
 
-##2. Decoder
+## 2. Decoder
 
 - Decodes the given hidden vector into an approximated string value x-hat
 - Output of the model will (time_steps x input_dim)
@@ -51,7 +51,7 @@ $ sudo pip install --upgrade
 | output   |     x-hat      | near-value reconstruction of 'x'            |
 |  model   |      RNN       | input-dim |
 
-##3. Generator (G)
+## 3. Generator (G)
 
 - Generates a fake hidden vector representing a name string
 - Output of the model = (2 x cell-dim) = (LSTM's h) + (LSTM's c)
@@ -62,7 +62,7 @@ $ sudo pip install --upgrade
 | output   |      Xc        | Generated name hidden vectors         |
 |  model   |      Linear    | (z_dim + class_dim) => (cell_dim * 2) |
 
-##4. Discriminator (D)
+## 4. Discriminator (D)
 
 - Binary classification. Define whether the given input is fake or not.
 
