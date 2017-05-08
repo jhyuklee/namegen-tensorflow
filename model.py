@@ -163,7 +163,8 @@ class GAN(object):
     def build_model(self):
         # encoder decoder loss
         state = self.encoder(self.inputs, self.inputs_noise)
-        self.decoded = self.decoder(self.decoder_inputs, state, feed_prev=True)
+        self.decoded = self.decoder(self.decoder_inputs, 
+                ((tf.zeros_like(state[0][1]), state[0][1]),), feed_prev=True)
         self.ae_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=self.decoded,
                 labels=tf.reshape(self.inputs, [-1, self.input_dim])))
 
@@ -199,12 +200,12 @@ class GAN(object):
             labels=tf.ones_like(logits_real)))
         d_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=logits_fake,
             labels=tf.zeros_like(logits_fake)))
-        cf_loss_fake = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=cf_logits_fake,
-            labels=self.labels))
+        self.cf_loss_fake = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
+            logits=cf_logits_fake, labels=self.labels))
         self.d_loss = d_loss_real + d_loss_fake
         self.g_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=logits_fake,
             labels=tf.ones_like(logits_fake)))
-        self.g_loss += cf_loss_fake
+        self.g_loss += self.cf_loss_fake
 
         tf.summary.scalar('Discriminator Loss', self.d_loss)
         tf.summary.scalar('Generator Loss', self.g_loss)

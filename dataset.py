@@ -181,7 +181,7 @@ def train(model, dataset, config):
 
     print('\n## GAN Training')
     d_iter = 1
-    g_iter = 2
+    g_iter = 1 
     for epoch_idx in range(config.gan_epoch):
         # Initialize result file
         f = open(config.results_dir + '/' + model.scope, 'w')
@@ -209,7 +209,8 @@ def train(model, dataset, config):
                 sess.run(model.g_optimize, feed_dict=feed_dict)
 
             if (datum_idx % (batch_size*5) == 0) or (datum_idx + batch_size >= len(inputs)):
-                d_loss, g_loss, g_decoded = sess.run([model.d_loss, model.g_loss, model.g_decoded], 
+                d_loss, g_loss, cf_loss, g_decoded = sess.run(
+                        [model.d_loss, model.g_loss, model.cf_loss_fake, model.g_decoded], 
                         feed_dict=feed_dict)
                 g_decoded = g_decoded.reshape((len(batch_inputs), config.max_time_step, 
                     config.input_dim))
@@ -220,8 +221,8 @@ def train(model, dataset, config):
                 else:
                     PAD_idx = -1
                 # _progress = progress((datum_idx + batch_size) / float(len(inputs)))
-                _progress = "\rEp %d d:%.3f, g:%.3f, %s (%s)" % \
-                        (epoch_idx, d_loss, g_loss, g_decoded_name[:PAD_idx], 
+                _progress = "\rEp %d d:%.3f, g:%.3f, cf:%.3f, %s (%s)" % \
+                        (epoch_idx, d_loss, g_loss, cf_loss, g_decoded_name[:PAD_idx], 
                                 idx2country[np.argmax(batch_labels[0], 0)])
                 sys.stdout.write(_progress)
                 sys.stdout.flush()
