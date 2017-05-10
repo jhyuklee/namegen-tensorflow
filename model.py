@@ -205,7 +205,7 @@ class GAN(object):
         self.d_loss = d_loss_real + d_loss_fake
         self.g_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=logits_fake,
             labels=tf.ones_like(logits_fake)))
-        self.g_loss += self.cf_loss_fake
+        self.g_loss = (self.g_loss + self.cf_loss_fake) / 2
 
         tf.summary.scalar('Discriminator Loss', self.d_loss)
         tf.summary.scalar('Generator Loss', self.g_loss)

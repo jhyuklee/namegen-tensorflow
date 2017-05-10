@@ -18,6 +18,18 @@ def one_hot(index, length, value=1):
     return vector
 
 
+def select_data(dataset, class_info, is_all=True):
+    if not is_all:
+        idx2country, country2cnt = class_info
+        new_dataset = []
+        for item in dataset:
+            if idx2country[np.argmax(item[2], 0)] in country2cnt:
+                new_dataset.append(item)
+        return new_dataset
+    else:
+        return dataset
+
+
 def get_name_data(config):
     for root, dir, files in os.walk(config.data_dir):
         inputs = []
@@ -27,6 +39,7 @@ def get_name_data(config):
         
         char2idx = {}
         idx2char = {}
+        country2cnt = {}
         country2idx = {}
         idx2country = {}
         name_dict = {}
@@ -62,6 +75,7 @@ def get_name_data(config):
                     file_len = k + 1
                     country, index = line[:-1].split('\t')
                     country2idx[country] = int(index)
+                    country2cnt[country] = 0
                     idx2country[int(index)] = country
 
             elif file_name == 'name_to_country.txt':
@@ -75,6 +89,7 @@ def get_name_data(config):
                     name = [one_hot(char2idx[c], vocab_size) for c in raw_name]
                     decoder_name = np.insert(name[:], 0, one_hot(GO, vocab_size), axis=0)
                     decoder_name = np.append(decoder_name[:], [one_hot(EOS, vocab_size)], axis=0)
+                    country2cnt[nationality] += 1
                     nationality = one_hot(country2idx[nationality], class_dim)
                     name_length = len(name)
 
@@ -104,29 +119,38 @@ def get_name_data(config):
     shuffle(pairs)
     inputs, inputs_length, labels, decoder_inputs = zip(*pairs)
 
-    # To np-array
-    inputs = np.array(inputs)
-    inputs_length = np.array(inputs_length)
-    labels = np.array(labels)
-    decoder_inputs = np.array(decoder_inputs)
-    
     print('\n## Data stats')
     print('vocab size: %d' % vocab_size)
     print('name max length:', max_len, '/', max_name_len)
     print('unique name set:', len(name_dict))
     name_sorted = sorted(name_dict.items(), key=operator.itemgetter(1))
     print(name_sorted[::-1][:10])
-    print('data shapes:', inputs.shape, decoder_inputs.shape, labels.shape, inputs_length.shape)
-    name_s = ''.join([idx2char[char] for char in np.argmax(inputs[0], 1)][:inputs_length[0]])
+    country_sorted = sorted(country2cnt.items(), key=operator.itemgetter(1))[::-1][:10]
+    print(country_sorted)
+
+    # Select only majority class items
+    dataset = list(zip(inputs, decoder_inputs, labels, inputs_length))
+    inputs, decoder_inputs, labels, inputs_length = \
+             zip(*select_data(dataset, [idx2country, dict(country_sorted)], is_all=False))
+    print('select from', len(dataset), 'to', len(inputs))
+    
+    # To np-array
+    inputs = np.array(inputs)
+    inputs_length = np.array(inputs_length)
+    labels = np.array(labels)
+    decoder_inputs = np.array(decoder_inputs)
+    new_dataset = (inputs, decoder_inputs, labels, inputs_length)
+    print('data shapes:', new_dataset[0].shape, new_dataset[1].shape, new_dataset[2].shape, 
+            new_dataset[3].shape)
 
     print('\n## Data sample')
     print(np.argmax(inputs[0], 1))
     print(np.argmax(decoder_inputs[0], 1))
+    name_s = ''.join([idx2char[char] for char in np.argmax(inputs[0], 1)][:inputs_length[0]])
     print('name:', name_s)
     print('label:', idx2country[np.argmax(labels[0], 0)] + ', length:', inputs_length[0], '\n')
 
-    return (inputs, decoder_inputs, labels, inputs_length, 
-            [idx2char, char2idx], [idx2country, country2idx])
+    return (new_dataset, [idx2char, char2idx], [idx2country, country2idx])
 
 
 def train(model, dataset, config):
@@ -181,7 +205,7 @@ def train(model, dataset, config):
 
     print('\n## GAN Training')
     d_iter = 1
-    g_iter = 1 
+    g_iter = 5 
     for epoch_idx in range(config.gan_epoch):
         # Initialize result file
         f = open(config.results_dir + '/' + model.scope, 'w')
