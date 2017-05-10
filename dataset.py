@@ -24,6 +24,7 @@ def select_data(dataset, class_info, is_all=True):
         new_dataset = []
         for item in dataset:
             if idx2country[np.argmax(item[2], 0)] in country2cnt:
+                # TODO: add new onehot
                 new_dataset.append(item)
         return new_dataset
     else:
@@ -78,11 +79,12 @@ def get_name_data(config):
                     country2cnt[country] = 0
                     idx2country[int(index)] = country
 
-            elif file_name == 'name_to_country.txt':
+            elif file_name == 'new_names.txt':
                 PAD = vocab_size - 3
                 GO = vocab_size - 2
                 EOS = vocab_size - 1
                 for k, line in enumerate(data):
+                    if k > 100000: break
                     raw_name, nationality = line[:-1].split('\t')
                     raw_name = re.sub(r'\ufeff', '', raw_name)    # delete BOM
                     
@@ -156,7 +158,8 @@ def get_name_data(config):
 def train(model, dataset, config):
     sess = model.session
     batch_size = config.batch_size
-    inputs, decoder_inputs, labels, inputs_length, char_set, country_set = dataset
+    sets, char_set, country_set = dataset
+    inputs, decoder_inputs, labels, inputs_length = sets
     idx2char, char2idx = char_set
     idx2country, country2idx = country_set
 
@@ -193,6 +196,7 @@ def train(model, dataset, config):
                     for char in np.argmax(decoded[0], 1)])[:batch_input_len[0]]
                 original_name = ''.join([idx2char[char] 
                     for char in np.argmax(batch_inputs[0], 1)])[:batch_input_len[0]]
+                # TODO: print average loss
                 _progress = "\rEp %d: %s/%s, ae_loss: %.3f, cf_acc: %.3f" % (
                         epoch_idx, original_name, decoded_name, ae_loss, cf_acc)
                 sys.stdout.write(_progress)
@@ -205,7 +209,7 @@ def train(model, dataset, config):
 
     print('\n## GAN Training')
     d_iter = 1
-    g_iter = 5 
+    g_iter = 3 
     for epoch_idx in range(config.gan_epoch):
         # Initialize result file
         f = open(config.results_dir + '/' + model.scope, 'w')

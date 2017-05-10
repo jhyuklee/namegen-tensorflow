@@ -162,7 +162,8 @@ class GAN(object):
 
     def build_model(self):
         # encoder decoder loss
-        state = self.encoder(self.inputs, self.inputs_noise)
+        # state = self.encoder(self.inputs, self.inputs_noise)
+        state = self.encoder(self.inputs)
         self.decoded = self.decoder(self.decoder_inputs, 
                 ((tf.zeros_like(state[0][1]), state[0][1]),), feed_prev=True)
         self.ae_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=self.decoded,
@@ -170,30 +171,23 @@ class GAN(object):
 
         # classifier loss
         cf_logits = self.classifier(state[0][1])
-        self.cf_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
-            logits=cf_logits,
+        self.cf_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=cf_logits,
             labels=self.labels))
         self.cf_acc = tf.reduce_mean(
                 tf.cast(tf.equal(tf.argmax(cf_logits, 1), tf.argmax(self.labels, 1)), tf.float32))
 
         # generator logits
         h_hat = self.generator(tf.concat([self.z, self.labels], 1))
-        # h_hat = self.generator(self.z)
-        # logits_fake = self.discriminator(tf.concat([h_hat, self.labels], 1))
-        logits_fake = self.discriminator(h_hat)
-        # c_hat, h_hat = tf.split(axis=1, num_or_size_splits=2, value=h_hat)
-        # self.g_decoded = self.decoder(self.decoder_inputs, ((c_hat, h_hat),),
-        #         feed_prev=True, reuse=True)
+        logits_fake = self.discriminator(tf.concat([h_hat, self.labels], 1))
+        # logits_fake = self.discriminator(h_hat)
         cf_logits_fake = self.classifier(h_hat, reuse=True)
         self.g_decoded = self.decoder(self.decoder_inputs, ((tf.zeros_like(h_hat), h_hat),),
                 feed_prev=True, reuse=True)
         
         # discriminator logits
         h = self.encoder(self.inputs, reuse=True)
-        # h = tf.concat([h[0][0], h[0][1]], 1)
-        # logits_real = self.discriminator(tf.concat([h, self.labels], 1), reuse=True)
-        # logits_real = self.discriminator(h, reuse=True)
-        logits_real = self.discriminator(h[0][1], reuse=True)
+        logits_real = self.discriminator(tf.concat([h[0][1], self.labels], 1), reuse=True)
+        # logits_real = self.discriminator(h[0][1], reuse=True)
 
         # compute loss
         d_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=logits_real,
@@ -205,7 +199,7 @@ class GAN(object):
         self.d_loss = d_loss_real + d_loss_fake
         self.g_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=logits_fake,
             labels=tf.ones_like(logits_fake)))
-        self.g_loss = (self.g_loss + self.cf_loss_fake) / 2
+        # self.g_loss = (self.g_loss + self.cf_loss_fake) / 2
 
         tf.summary.scalar('Discriminator Loss', self.d_loss)
         tf.summary.scalar('Generator Loss', self.g_loss)
