@@ -5,7 +5,6 @@ from time import gmtime, strftime
 from dataset import *
 from model import GAN
 
-
 flags = tf.app.flags
 flags.DEFINE_integer("ae_epoch", 10, "Epoch to train")
 flags.DEFINE_integer("gan_epoch", 100, "Epoch to train")

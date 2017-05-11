@@ -98,8 +98,8 @@ class GAN(object):
             inputs_embed, projector, self.embed_config  = embedding_lookup(
                     inputs=inputs,
                     voca_size=self.input_dim,
-                    embedding_dim=self.char_dim, 
-                    visual_dir='checkpoint/%s' % self.scope, 
+                    embedding_dim=self.char_dim,
+                    visual_dir='checkpoint/%s' % self.scope,
                     scope='Character')
             if inputs_noise is not None:
                 inputs_noise = tf.expand_dims(inputs_noise, 1)
@@ -122,10 +122,10 @@ class GAN(object):
             # make dummy linear for loop function
             dummy = linear(inputs=tf.constant(1, tf.float32, [100, self.cell_dim]),
                     output_dim=self.input_dim, scope='rnn_decoder/loop_function/Out', reuse=reuse)
-            
+
             if feed_prev:
                 def loop_function(prev, i):
-                    next = tf.argmax(linear(inputs=prev, 
+                    next = tf.argmax(linear(inputs=prev,
                         output_dim=self.input_dim,
                         scope='Out', reuse=True), 1)
                     return tf.one_hot(next, self.input_dim)
@@ -165,7 +165,7 @@ class GAN(object):
         # encoder decoder loss
         # state = self.encoder(self.inputs, self.inputs_noise)
         state = self.encoder(self.inputs)
-        self.decoded = self.decoder(self.decoder_inputs, 
+        self.decoded = self.decoder(self.decoder_inputs,
                 ((tf.zeros_like(state[0][1]), state[0][1]),), feed_prev=True)
         self.ae_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
             logits=self.decoded, labels=tf.reshape(self.inputs, [-1])))
@@ -184,7 +184,7 @@ class GAN(object):
         cf_logits_fake = self.classifier(h_hat, reuse=True)
         self.g_decoded = self.decoder(self.decoder_inputs, ((tf.zeros_like(h_hat), h_hat),),
                 feed_prev=True, reuse=True)
-        
+
         # discriminator logits
         h = self.encoder(self.inputs, reuse=True)
         logits_real = self.discriminator(tf.concat([h[0][1], tf.one_hot(self.labels, self.class_dim)], 1), reuse=True)
@@ -204,7 +204,7 @@ class GAN(object):
 
         tf.summary.scalar('Discriminator Loss', self.d_loss)
         tf.summary.scalar('Generator Loss', self.g_loss)
-        
+
         self.params = tf.trainable_variables()
         d_vars = [var for var in self.params if 'discriminator' in var.name]
         g_vars = [var for var in self.params if 'generator' in var.name]
