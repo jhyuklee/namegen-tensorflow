@@ -7,8 +7,8 @@ from model import GAN
 
 
 flags = tf.app.flags
-flags.DEFINE_integer("ae_epoch", 10, "Epoch to train")
-flags.DEFINE_integer("gan_epoch", 100, "Epoch to train")
+flags.DEFINE_integer("ae_epoch", 500, "Epoch to train")
+flags.DEFINE_integer("gan_epoch", 1000, "Epoch to train")
 flags.DEFINE_integer("input_dim", 43, "Data input dimension + PAD, GO, EOS")
 flags.DEFINE_integer("class_dim", 127, "Data class dimension")
 flags.DEFINE_integer("batch_size", 1000, "Mini-batch size")

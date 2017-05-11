@@ -11,20 +11,13 @@ from random import shuffle
 from utils import *
 
 
-def one_hot(index, length, value=1):
-    assert index >= 0 and index < length, 'index must be bigger or equal than 0'
-    vector = np.zeros([length])
-    vector[index] = value
-    return vector
-
-
 def select_data(dataset, class_info, is_all=True):
     if not is_all:
         idx2country, country2cnt = class_info
         new_dataset = []
         for item in dataset:
             if idx2country[item[2]] in country2cnt:
-                # TODO: add new onehot
+                # TODO: add new onehot label
                 new_dataset.append(item)
         return new_dataset
     else:
@@ -173,6 +166,7 @@ def train(model, dataset, config):
         model.load('checkpoint/' + config.pretrained_path)
     
     for epoch_idx in range(config.ae_epoch if config.train_autoencoder else 1):
+        ae_stats = {'sum':0.0, 'cnt':0.0}
         for datum_idx in range(0, len(inputs), batch_size):
             batch_inputs = inputs[datum_idx:datum_idx+batch_size]
             batch_decoder_inputs = decoder_inputs[datum_idx:datum_idx+batch_size]
@@ -199,12 +193,19 @@ def train(model, dataset, config):
                     for char in np.argmax(decoded[0], 1)])[:batch_input_len[0]]
                 original_name = ''.join([idx2char[char] 
                     for char in batch_inputs[0]])[:batch_input_len[0]]
-                # TODO: print average loss
+
+                ae_stats['sum'] += ae_loss
+                ae_stats['cnt'] += 1
                 _progress = "\rEp %d: %s/%s, ae_loss: %.3f, cf_acc: %.3f" % (
                         epoch_idx, original_name, decoded_name, ae_loss, cf_acc)
                 sys.stdout.write(_progress)
                 sys.stdout.flush()
-        print()
+
+        ae_ep = ae_stats['sum'] / ae_stats['cnt']
+        if ae_ep < 0.005:
+            print('\nAutoencoder Training Done with %.3f loss' % ae_ep)
+        else:
+            print(' avg_loss: %.3f' % ae_ep)
 
     if config.train_autoencoder is True:
         model.save(config.checkpoint_dir)
@@ -212,7 +213,7 @@ def train(model, dataset, config):
 
     print('\n## GAN Training')
     d_iter = 1
-    g_iter = 3 
+    g_iter = 5 
     for epoch_idx in range(config.gan_epoch):
         # Initialize result file
         f = open(config.results_dir + '/' + model.scope, 'w')
