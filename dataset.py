@@ -82,7 +82,11 @@ def get_name_data(config):
                 GO = vocab_size - 2
                 EOS = vocab_size - 1
                 for k, line in enumerate(data):
-                    if k % 10000 == 0: print(k)
+                    _progress = progress(k / 1787194) + "Reading %d names... "%(k)
+                    sys.stdout.write(_progress)
+                    sys.stdout.flush()
+                    if k >= 100000: break
+
                     raw_name, nationality = line[:-1].split('\t')
                     raw_name = re.sub(r'\ufeff', '', raw_name)    # delete BOM
                     
@@ -108,6 +112,7 @@ def get_name_data(config):
                     labels.append(nationality)
                     inputs_length.append(name_length)
                     file_len = k + 1
+                print()
             else:
                 pass 
 
