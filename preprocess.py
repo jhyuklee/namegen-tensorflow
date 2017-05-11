@@ -58,7 +58,7 @@ def get_name_data(data_dir):
 
 data_to_write = get_name_data('data')
 
-f = open('./data/new_names.txt', 'w')
+f = open('./data/new_names (tmp).txt', 'w')
 for name, nationality in data_to_write.items():
     f.write(name + '\t' + nationality + '\n')
 f.close()
