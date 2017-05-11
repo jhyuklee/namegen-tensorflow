@@ -1,4 +1,5 @@
 import tensorflow as tf
+import os
 
 from time import gmtime, strftime
 from dataset import *
@@ -42,7 +43,7 @@ def create_model(config):
 
 def main(_):
     print(flags.FLAGS.__flags, '\n')
-    
+
     dataset = get_name_data(FLAGS)
     gan_model = create_model(FLAGS)
     if FLAGS.is_train:
@@ -50,5 +51,7 @@ def main(_):
 
 
 if __name__ == '__main__':
+    if not os.path.exists(FLAGS.results_dir):
+        os.makedirs(FLAGS.results_dir)
     tf.app.run()
 
