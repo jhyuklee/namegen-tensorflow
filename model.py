@@ -159,8 +159,6 @@ class GAN(object):
 
             return logits
 
-
-
     def build_model(self):
         # encoder decoder loss
         # state = self.encoder(self.inputs, self.inputs_noise)
@@ -181,6 +179,7 @@ class GAN(object):
         h_hat = self.generator(tf.concat([self.z, tf.one_hot(self.labels, self.class_dim)], 1))
         logits_fake = self.discriminator(
                 tf.concat([h_hat, tf.one_hot(self.labels, self.class_dim)], 1))
+        # h_hat = self.generator(self.z)
         # logits_fake = self.discriminator(h_hat)
         cf_logits_fake = self.classifier(h_hat, reuse=True)
         self.g_decoded = self.decoder(self.decoder_inputs, ((tf.zeros_like(h_hat), h_hat),),
