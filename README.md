@@ -4,8 +4,9 @@ Repository for Generative model for names of [Olympic Name Dataset]()
 Created at March 2, 2017 Korea Unviversity, Data-Mining Lab
 
 Tensorflow Implementation for Name-GAN(Generative Adversarial Network).
-Jinhyuk Lee (63coldnoodle@gmail.com)
-Bumsoo Kim  (meliketoy@gmail.com)
+
+- Jinhyuk Lee (63coldnoodle@gmail.com)
+- Bumsoo Kim  (meliketoy@gmail.com)
 
 ## Requirements
 Take a look at the [installation instruction](./INSTALL.md) for details about installation.
