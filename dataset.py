@@ -204,6 +204,7 @@ def train(model, dataset, config):
         ae_ep = ae_stats['sum'] / ae_stats['cnt']
         if ae_ep < 0.005:
             print('\nAutoencoder Training Done with %.3f loss' % ae_ep)
+            break
         else:
             print(' avg_loss: %.3f' % ae_ep)
 
