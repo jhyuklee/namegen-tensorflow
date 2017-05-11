@@ -2,6 +2,8 @@ import tensorflow as tf
 import numpy as np
 import time
 import random
+import os
+import sys
 
 
 def train(model, dataset, config):
