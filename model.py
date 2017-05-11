@@ -33,12 +33,12 @@ class GAN(object):
         # input data placeholders
         self.input_dim = config.input_dim
         self.class_dim = config.class_dim
-        self.inputs = tf.placeholder(tf.float32, [None, self.max_time_step, self.input_dim])
+        self.inputs = tf.placeholder(tf.int64, [None, self.max_time_step])
         self.inputs_noise = tf.placeholder(tf.float32, [None, self.char_dim])
         self.input_len = tf.placeholder(tf.int32, [None])
-        self.decoder_inputs = tf.placeholder(tf.float32, [None, self.max_time_step, self.input_dim])
+        self.decoder_inputs = tf.placeholder(tf.int64, [None, self.max_time_step])
         self.z = tf.placeholder(tf.float32, [None, self.input_dim])
-        self.labels = tf.placeholder(tf.float32, [None, self.class_dim])
+        self.labels = tf.placeholder(tf.int64, [None])
         self.global_step = tf.Variable(0, name="step", trainable=False)
 
         # model build
@@ -96,7 +96,7 @@ class GAN(object):
         with tf.variable_scope('encoder', reuse=reuse):
             cell = lstm_cell(self.cell_dim, self.cell_layer_num, self.cell_keep_prob)
             inputs_embed, projector, self.embed_config  = embedding_lookup(
-                    inputs=tf.argmax(inputs, 2), 
+                    inputs=inputs,
                     voca_size=self.input_dim,
                     embedding_dim=self.char_dim, 
                     visual_dir='checkpoint/%s' % self.scope, 
@@ -125,7 +125,7 @@ class GAN(object):
             
             if feed_prev:
                 def loop_function(prev, i):
-                    next =  tf.argmax(linear(inputs=prev, 
+                    next = tf.argmax(linear(inputs=prev, 
                         output_dim=self.input_dim,
                         scope='Out', reuse=True), 1)
                     return tf.one_hot(next, self.input_dim)
@@ -133,6 +133,7 @@ class GAN(object):
                 loop_function = None
 
             cell = lstm_cell(self.cell_dim, self.cell_layer_num, self.cell_keep_prob)
+            inputs = tf.one_hot(inputs, self.input_dim)
             inputs_t = tf.unstack(tf.transpose(inputs, [1, 0, 2]), self.max_time_step)
             outputs, states = tf.contrib.legacy_seq2seq.rnn_decoder(inputs_t, state, cell, loop_function)
             outputs_t = tf.transpose(tf.stack(outputs), [1, 0, 2])
@@ -166,19 +167,19 @@ class GAN(object):
         state = self.encoder(self.inputs)
         self.decoded = self.decoder(self.decoder_inputs, 
                 ((tf.zeros_like(state[0][1]), state[0][1]),), feed_prev=True)
-        self.ae_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=self.decoded,
-                labels=tf.reshape(self.inputs, [-1, self.input_dim])))
+        self.ae_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
+            logits=self.decoded, labels=tf.reshape(self.inputs, [-1])))
 
         # classifier loss
         cf_logits = self.classifier(state[0][1])
-        self.cf_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=cf_logits,
-            labels=self.labels))
+        self.cf_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
+            logits=cf_logits, labels=self.labels))
         self.cf_acc = tf.reduce_mean(
-                tf.cast(tf.equal(tf.argmax(cf_logits, 1), tf.argmax(self.labels, 1)), tf.float32))
+                tf.cast(tf.equal(tf.argmax(cf_logits, 1), self.labels), tf.float32))
 
         # generator logits
-        h_hat = self.generator(tf.concat([self.z, self.labels], 1))
-        logits_fake = self.discriminator(tf.concat([h_hat, self.labels], 1))
+        h_hat = self.generator(tf.concat([self.z, tf.one_hot(self.labels, self.class_dim)], 1))
+        logits_fake = self.discriminator(tf.concat([h_hat, tf.one_hot(self.labels, self.class_dim)], 1))
         # logits_fake = self.discriminator(h_hat)
         cf_logits_fake = self.classifier(h_hat, reuse=True)
         self.g_decoded = self.decoder(self.decoder_inputs, ((tf.zeros_like(h_hat), h_hat),),
@@ -186,7 +187,7 @@ class GAN(object):
         
         # discriminator logits
         h = self.encoder(self.inputs, reuse=True)
-        logits_real = self.discriminator(tf.concat([h[0][1], self.labels], 1), reuse=True)
+        logits_real = self.discriminator(tf.concat([h[0][1], tf.one_hot(self.labels, self.class_dim)], 1), reuse=True)
         # logits_real = self.discriminator(h[0][1], reuse=True)
 
         # compute loss
@@ -194,7 +195,7 @@ class GAN(object):
             labels=tf.ones_like(logits_real)))
         d_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=logits_fake,
             labels=tf.zeros_like(logits_fake)))
-        self.cf_loss_fake = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
+        self.cf_loss_fake = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
             logits=cf_logits_fake, labels=self.labels))
         self.d_loss = d_loss_real + d_loss_fake
         self.g_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=logits_fake,

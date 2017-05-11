@@ -23,7 +23,7 @@ def select_data(dataset, class_info, is_all=True):
         idx2country, country2cnt = class_info
         new_dataset = []
         for item in dataset:
-            if idx2country[np.argmax(item[2], 0)] in country2cnt:
+            if idx2country[item[2]] in country2cnt:
                 # TODO: add new onehot
                 new_dataset.append(item)
         return new_dataset
@@ -47,9 +47,7 @@ def get_name_data(config):
         max_len = 0
         vocab_size = 0
         PAD, GO, EOS = 0, 0, 0
-
         max_name_len = 45
-        class_dim = config.class_dim
 
         for file_cnt, file_name in enumerate(sorted(files)):
             data = open(os.path.join(root, file_name))
@@ -84,25 +82,25 @@ def get_name_data(config):
                 GO = vocab_size - 2
                 EOS = vocab_size - 1
                 for k, line in enumerate(data):
-                    if k > 100000: break
+                    if k % 10000 == 0: print(k)
                     raw_name, nationality = line[:-1].split('\t')
                     raw_name = re.sub(r'\ufeff', '', raw_name)    # delete BOM
                     
-                    name = [one_hot(char2idx[c], vocab_size) for c in raw_name]
-                    decoder_name = np.insert(name[:], 0, one_hot(GO, vocab_size), axis=0)
-                    decoder_name = np.append(decoder_name[:], [one_hot(EOS, vocab_size)], axis=0)
+                    name = [char2idx[c] for c in raw_name]
+                    decoder_name = np.insert(name[:], 0, GO, axis=0)
+                    decoder_name = np.append(decoder_name[:], [EOS], axis=0)
                     country2cnt[nationality] += 1
-                    nationality = one_hot(country2idx[nationality], class_dim)
+                    nationality = country2idx[nationality]
                     name_length = len(name)
 
                     if max_len < len(name): # update the maximum length
                         max_len = len(name)
                     while len(name) != max_name_len: # fill with PAD
-                        name.append(one_hot(PAD, vocab_size))
+                        name.append(PAD)
                     while len(decoder_name) != max_name_len:
-                        decoder_name = np.append(decoder_name[:], [one_hot(PAD, vocab_size)], axis=0)
+                        decoder_name = np.append(decoder_name[:], [PAD], axis=0)
 
-                    name_s = ''.join([idx2char[char] for char in np.argmax(name, 1)][:name_length])
+                    name_s = ''.join([idx2char[char] for char in name][:name_length])
                     name_dict[name_s] = 0
 
                     inputs.append(name)
@@ -146,11 +144,11 @@ def get_name_data(config):
             new_dataset[3].shape)
 
     print('\n## Data sample')
-    print(np.argmax(inputs[0], 1))
-    print(np.argmax(decoder_inputs[0], 1))
-    name_s = ''.join([idx2char[char] for char in np.argmax(inputs[0], 1)][:inputs_length[0]])
+    print(inputs[0])
+    print(decoder_inputs[0])
+    name_s = ''.join([idx2char[char] for char in inputs[0]][:inputs_length[0]])
     print('name:', name_s)
-    print('label:', idx2country[np.argmax(labels[0], 0)] + ', length:', inputs_length[0], '\n')
+    print('label:', idx2country[labels[0]] + ', length:', inputs_length[0], '\n')
 
     return (new_dataset, [idx2char, char2idx], [idx2country, country2idx])
 
@@ -195,7 +193,7 @@ def train(model, dataset, config):
                 decoded_name = ''.join([idx2char[char] 
                     for char in np.argmax(decoded[0], 1)])[:batch_input_len[0]]
                 original_name = ''.join([idx2char[char] 
-                    for char in np.argmax(batch_inputs[0], 1)])[:batch_input_len[0]]
+                    for char in batch_inputs[0]])[:batch_input_len[0]]
                 # TODO: print average loss
                 _progress = "\rEp %d: %s/%s, ae_loss: %.3f, cf_acc: %.3f" % (
                         epoch_idx, original_name, decoded_name, ae_loss, cf_acc)
@@ -251,7 +249,7 @@ def train(model, dataset, config):
                 # _progress = progress((datum_idx + batch_size) / float(len(inputs)))
                 _progress = "\rEp %d d:%.3f, g:%.3f, cf:%.3f, %s (%s)" % \
                         (epoch_idx, d_loss, g_loss, cf_loss, g_decoded_name[:PAD_idx], 
-                                idx2country[np.argmax(batch_labels[0], 0)])
+                                idx2country[batch_labels[0]])
                 sys.stdout.write(_progress)
                 sys.stdout.flush()
 
@@ -263,7 +261,7 @@ def train(model, dataset, config):
                     PAD_idx = PAD_idx.flatten().tolist()[0]
                 else:
                     PAD_idx = -1
-                f.write(name[:PAD_idx] + '\t' + idx2country[np.argmax(label, 0)] + '\n')
+                f.write(name[:PAD_idx] + '\t' + idx2country[label] + '\n')
             f.close()
      
         print()
