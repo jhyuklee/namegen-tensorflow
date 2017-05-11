@@ -29,6 +29,7 @@ class GAN(object):
         self.char_dim = config.char_dim
         self.hidden_dim = config.hidden_dim
         self.output_dr = config.output_dr
+        self.conditional = config.conditional
 
         # input data placeholders
         self.input_dim = config.input_dim
@@ -160,52 +161,49 @@ class GAN(object):
             return logits
 
     def build_model(self):
-        # encoder decoder loss
-        # state = self.encoder(self.inputs, self.inputs_noise)
+        # Autoencoder loss (use inputs_noise optionally)
         state = self.encoder(self.inputs)
         self.decoded = self.decoder(self.decoder_inputs,
                 ((tf.zeros_like(state[0][1]), state[0][1]),), feed_prev=True)
         self.ae_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
             logits=self.decoded, labels=tf.reshape(self.inputs, [-1])))
 
-        # classifier loss
+        # Classifier loss
         cf_logits = self.classifier(state[0][1])
         self.cf_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
             logits=cf_logits, labels=self.labels))
         self.cf_acc = tf.reduce_mean(
                 tf.cast(tf.equal(tf.argmax(cf_logits, 1), self.labels), tf.float32))
 
-        # generator logits
-        # Conditional =================================================================================
-        h_hat = self.generator(tf.concat([self.z, tf.one_hot(self.labels, self.class_dim)], 1))
-        logits_fake = self.discriminator(
-                tf.concat([h_hat, tf.one_hot(self.labels, self.class_dim)], 1))
-        # =============================================================================================
-
-        # Unconditional ==============================================================================
-        # h_hat = self.generator(self.z)
-        # logits_fake = self.discriminator(h_hat)
-        # ===========================================================================================
-        cf_logits_fake = self.classifier(h_hat, reuse=True)
+        # Generator logits
+        if self.conditional:
+            h_hat = self.generator(tf.concat([self.z, tf.one_hot(self.labels, self.class_dim)], 1))
+            logits_fake = self.discriminator(
+                    tf.concat([h_hat, tf.one_hot(self.labels, self.class_dim)], 1))
+        else:
+            h_hat = self.generator(self.z)
+            logits_fake = self.discriminator(h_hat)
         self.g_decoded = self.decoder(self.decoder_inputs, ((tf.zeros_like(h_hat), h_hat),),
                 feed_prev=True, reuse=True)
 
-        # discriminator logits
+        # Discriminator logits
         h = self.encoder(self.inputs, reuse=True)
-        logits_real = self.discriminator(
-                tf.concat([h[0][1], tf.one_hot(self.labels, self.class_dim)], 1), reuse=True) # Conditional
-        # logits_real = self.discriminator(h[0][1], reuse=True) # Unconditional
+        if self.conditional:
+            logits_real = self.discriminator(
+                    tf.concat([h[0][1], tf.one_hot(self.labels, self.class_dim)], 1), reuse=True)
+        else:
+            logits_real = self.discriminator(h[0][1], reuse=True)
 
-        # Classifier Loss
+        # Classifier(G) loss
+        cf_logits_fake = self.classifier(h_hat, reuse=True)
         self.cf_loss_fake = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
-            logits=cf_logits_fake, labels=self.labels)) # |Label - Classifier(G_result)| = Classifier_loss
+            logits=cf_logits_fake, labels=self.labels))
 
         # GAN => G, D Loss
         d_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=logits_real,
             labels=tf.ones_like(logits_real)))
         d_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=logits_fake,
             labels=tf.zeros_like(logits_fake)))
-
         self.d_loss = d_loss_real + d_loss_fake
         self.g_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=logits_fake,
             labels=tf.ones_like(logits_fake)))

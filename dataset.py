@@ -78,7 +78,7 @@ def get_name_data(config):
                     _progress = progress(k / 1787194) + "Reading %d names... "%(k)
                     sys.stdout.write(_progress)
                     sys.stdout.flush()
-                    if k >= 100000: break
+                    if k >= 200000: break
 
                     raw_name, nationality = line[:-1].split('\t')
                     raw_name = re.sub(r'\ufeff', '', raw_name)    # delete BOM
@@ -123,7 +123,7 @@ def get_name_data(config):
     print('unique name set:', len(name_dict))
     name_sorted = sorted(name_dict.items(), key=operator.itemgetter(1))
     print(name_sorted[::-1][:10])
-    country_sorted = sorted(country2cnt.items(), key=operator.itemgetter(1))[::-1][:10]
+    country_sorted = sorted(country2cnt.items(), key=operator.itemgetter(1))[::-1][3:4]
     print(country_sorted)
 
     # Select only majority class items
@@ -202,7 +202,7 @@ def train(model, dataset, config):
                 sys.stdout.flush()
 
         ae_ep = ae_stats['sum'] / ae_stats['cnt']
-        if ae_ep < 0.005:
+        if ae_ep <= 0.010:
             print('\nAutoencoder Training Done with %.3f loss' % ae_ep)
             break
         else:
@@ -214,7 +214,7 @@ def train(model, dataset, config):
 
     print('\n## GAN Training')
     d_iter = 1
-    g_iter = 5 
+    g_iter = 2 
     for epoch_idx in range(config.gan_epoch):
         # Initialize result file
         f = open(config.results_dir + '/' + model.scope, 'w')
