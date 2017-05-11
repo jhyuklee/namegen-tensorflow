@@ -179,7 +179,8 @@ class GAN(object):
 
         # generator logits
         h_hat = self.generator(tf.concat([self.z, tf.one_hot(self.labels, self.class_dim)], 1))
-        logits_fake = self.discriminator(tf.concat([h_hat, tf.one_hot(self.labels, self.class_dim)], 1))
+        logits_fake = self.discriminator(
+                tf.concat([h_hat, tf.one_hot(self.labels, self.class_dim)], 1))
         # logits_fake = self.discriminator(h_hat)
         cf_logits_fake = self.classifier(h_hat, reuse=True)
         self.g_decoded = self.decoder(self.decoder_inputs, ((tf.zeros_like(h_hat), h_hat),),
@@ -187,7 +188,8 @@ class GAN(object):
         
         # discriminator logits
         h = self.encoder(self.inputs, reuse=True)
-        logits_real = self.discriminator(tf.concat([h[0][1], tf.one_hot(self.labels, self.class_dim)], 1), reuse=True)
+        logits_real = self.discriminator(
+                tf.concat([h[0][1], tf.one_hot(self.labels, self.class_dim)], 1), reuse=True)
         # logits_real = self.discriminator(h[0][1], reuse=True)
 
         # compute loss
