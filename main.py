@@ -51,6 +51,7 @@ def main(_):
 
 
 if __name__ == '__main__':
+    # Create directory if not exists
     if not os.path.exists(FLAGS.results_dir):
         os.makedirs(FLAGS.results_dir)
     tf.app.run()
