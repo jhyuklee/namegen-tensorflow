@@ -4,14 +4,16 @@ import os
 from time import gmtime, strftime
 from dataset import *
 from run import train
-from model import GAN
+from model import NameGeneration
+from vae import VAE
 
 
 flags = tf.app.flags
 flags.DEFINE_integer("ae_epoch", 500, "Epoch to train")
-flags.DEFINE_integer("gan_epoch", 3000, "Epoch to train")
+flags.DEFINE_integer("gan_epoch", 10000, "Epoch to train")
 flags.DEFINE_integer("input_dim", 43, "Data input dimension + PAD, GO, EOS")
 flags.DEFINE_integer("class_dim", 127, "Data class dimension")
+flags.DEFINE_integer("latent_dim", 30, "Latent variable dimenstion")
 flags.DEFINE_integer("batch_size", 1000, "Mini-batch size")
 flags.DEFINE_integer("max_time_step", 45, "Maximum time step of RNN")
 flags.DEFINE_integer("min_grad", -10, "Minimum gradient to clip")
@@ -39,8 +41,9 @@ FLAGS = flags.FLAGS
 def create_model(config):
     scope = 'NameGeneration-' + strftime("%Y%m%d%H%M%S", gmtime())
     config.checkpoint_dir += '/%s' % scope
-    gan_model = GAN(config, scope=scope)
-    return gan_model
+    # ng_model = NameGeneration(config, scope=scope)
+    ng_model = VAE(config, scope=scope)
+    return ng_model
 
 
 def main(_):
