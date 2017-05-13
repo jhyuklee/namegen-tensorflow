@@ -9,6 +9,7 @@ from model import NameGeneration
 class VAE(NameGeneration):
     def __init__(self, config, scope="VAE"):
         self.latent_dim = config.latent_dim
+        self.vae_lr = config.vae_lr
         super(VAE, self).__init__(config, scope)
     
     def encoder(self, inputs, labels, input_len, reuse=False):
@@ -31,24 +32,20 @@ class VAE(NameGeneration):
                     scope='Character')
             inputs_reshape = rnn_reshape(inputs_embed, self.char_dim, self.max_time_step)
             outputs, state = rnn_model(inputs_reshape, self.input_len, cell)
-            outputs = tf.transpose(tf.stack(outputs), [1, 0, 2])
             indices = tf.concat(
                     axis=1,
                     values=[tf.expand_dims(tf.range(0, tf.shape(input_len)[0]), 1),
                             tf.expand_dims(input_len - 1, 1)]
                     )
             gathered_outputs = tf.gather_nd(outputs, indices)
-            print('gathered_outputs', gathered_outputs)
             concat_outputs = tf.concat(
                     [tf.one_hot(labels, self.class_dim), gathered_outputs], 1)
-            print('concat_output', concat_outputs)
             z_mean = linear(inputs=concat_outputs,
                     output_dim=self.latent_dim, 
                     scope='z_mean')
             z_log_sigma_sq = linear(inputs=concat_outputs,
                     output_dim=self.latent_dim, 
                     scope='z_sigma')
-            print('mean and sigma', z_mean, z_log_sigma_sq)
 
             return z_mean, z_log_sigma_sq
 
@@ -92,9 +89,17 @@ class VAE(NameGeneration):
         self.z = tf.add(z_mean, tf.sqrt(tf.exp(z_log_sigma_sq)) * eps)
         self.decoded = self.decoder(self.decoder_inputs, ((tf.zeros_like(self.z), self.z),))
 
-        reconstr_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(
-                logits=self.decoded, labels=tf.reshape(self.inputs, [-1]))
-        latent_loss = 0.5 * tf.reduce_sum(-1 - z_log_sigma_sq + tf.square(z_mean)
-                + tf.exp(z_log_sigma_sq), 1)
-        self.vae_loss = tf.reduce_mean(reconstr_loss + latent_loss)
-         
+        reconstr_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
+                logits=self.decoded, labels=tf.reshape(self.inputs, [-1])))
+        latent_loss = tf.reduce_mean(0.5 * tf.reduce_sum(-1 - z_log_sigma_sq + tf.square(z_mean)
+                + tf.exp(z_log_sigma_sq), 1))
+        self.vae_loss = reconstr_loss + latent_loss
+        
+        self.params = tf.trainable_variables()
+        vae_vars = [var for var in self.params if 'encoder' in var.name or 'decoder' in var.name]
+        self.vae_optimize = tf.train.AdamOptimizer(self.vae_lr).minimize(self.vae_loss, var_list=vae_vars)
+
+    def sample(self, c):
+       
+        return None
+

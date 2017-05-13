@@ -84,7 +84,8 @@ def get_name_data(config):
                     raw_name = re.sub(r'\ufeff', '', raw_name)    # delete BOM
 
                     if nationality != 'Republic Of Korea':
-                        continue
+                        # continue
+                        pass
                     
                     name = [char2idx[c] for c in raw_name]
                     decoder_name = np.insert(name[:], 0, GO, axis=0)
@@ -126,7 +127,7 @@ def get_name_data(config):
     print('unique name set:', len(name_dict))
     name_sorted = sorted(name_dict.items(), key=operator.itemgetter(1))
     print(name_sorted[::-1][:10])
-    country_sorted = sorted(country2cnt.items(), key=operator.itemgetter(1))[::-1][0:1]
+    country_sorted = sorted(country2cnt.items(), key=operator.itemgetter(1))[::-1][0:10]
     print(country_sorted)
 
     # Select only majority class items

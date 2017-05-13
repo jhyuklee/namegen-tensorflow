@@ -130,3 +130,54 @@ def train(model, dataset, config):
 
     model.save(config.checkpoint_dir)
 
+
+def train_vae(model, dataset, config):
+    sess = model.session
+    batch_size = config.batch_size
+    sets, char_set, country_set = dataset
+    inputs, decoder_inputs, labels, inputs_length = sets
+    idx2char, char2idx = char_set
+    idx2country, country2idx = country_set
+
+    print('\n## Variational Autoencoder Training')
+    if not os.path.exists(config.checkpoint_dir):
+        os.makedirs(config.checkpoint_dir)
+    
+    for epoch_idx in range(config.vae_epoch):
+        vae_stats = {'sum':0.0, 'cnt':0.0}
+        for datum_idx in range(0, len(inputs), batch_size):
+            batch_inputs = inputs[datum_idx:datum_idx+batch_size]
+            batch_decoder_inputs = decoder_inputs[datum_idx:datum_idx+batch_size]
+            batch_input_len = inputs_length[datum_idx:datum_idx + batch_size]
+            batch_labels = labels[datum_idx:datum_idx+batch_size]
+            batch_inputs_noise = np.random.normal(0, 1, (len(batch_inputs), config.char_dim))
+                
+            assert len(batch_inputs) == len(batch_input_len) == len(batch_labels) == \
+            len(batch_inputs_noise) == len(batch_decoder_inputs), 'not the same batch size'
+
+            feed_dict = {model.inputs: batch_inputs, model.input_len: batch_input_len, 
+                    model.inputs_noise: batch_inputs_noise, model.labels: batch_labels, 
+                    model.decoder_inputs: batch_decoder_inputs}
+            
+            sess.run(model.vae_optimize, feed_dict=feed_dict)
+
+            if (datum_idx % (batch_size*5) == 0) or (datum_idx + batch_size >= len(inputs)):
+                decoded, vae_loss = sess.run([model.decoded, model.vae_loss], feed_dict=feed_dict)
+                decoded = decoded.reshape((len(batch_inputs), config.max_time_step, config.input_dim))
+                decoded_name = ''.join([idx2char[char] 
+                    for char in np.argmax(decoded[0], 1)])[:batch_input_len[0]]
+                original_name = ''.join([idx2char[char] 
+                    for char in batch_inputs[0]])[:batch_input_len[0]]
+
+                vae_stats['sum'] += vae_loss
+                vae_stats['cnt'] += 1
+                _progress = "\rEp %d: %s/%s, vae_loss: %.3f" % (
+                        epoch_idx, original_name, decoded_name, vae_loss)
+                sys.stdout.write(_progress)
+                sys.stdout.flush()
+        print()
+
+    print('Sampling results')
+     
+
+    model.save(config.checkpoint_dir)

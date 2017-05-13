@@ -3,12 +3,13 @@ import os
 
 from time import gmtime, strftime
 from dataset import *
-from run import train
+from run import train, train_vae
 from model import NameGeneration
 from vae import VAE
 
 
 flags = tf.app.flags
+flags.DEFINE_integer("vae_epoch", 500, "Epoch to train")
 flags.DEFINE_integer("ae_epoch", 500, "Epoch to train")
 flags.DEFINE_integer("gan_epoch", 10000, "Epoch to train")
 flags.DEFINE_integer("input_dim", 43, "Data input dimension + PAD, GO, EOS")
@@ -23,6 +24,7 @@ flags.DEFINE_integer("cell_layer_num", 1, "The layer number of RNN ")
 flags.DEFINE_integer("char_dim", 50, "Dimension of character embedding")
 flags.DEFINE_integer("hidden_dim", 200, "Dimension of hidden layer for FFNN")
 flags.DEFINE_float("ae_lr", 5e-3, "Learning rate of autoencoder")
+flags.DEFINE_float("vae_lr", 1e-2, "Learning rate of variational autoencoder")
 flags.DEFINE_float("cf_lr", 1e-3, "Learning rate of classifier")
 flags.DEFINE_float("gan_lr", 1e-3, "Learning rate of GAN")
 flags.DEFINE_float("output_dr", 0.5, "Dropout rate of FFNN")
@@ -50,9 +52,9 @@ def main(_):
     print(flags.FLAGS.__flags, '\n')
 
     dataset = get_name_data(FLAGS)
-    gan_model = create_model(FLAGS)
+    ng_model = create_model(FLAGS)
     if FLAGS.is_train:
-        train(gan_model, dataset, FLAGS)
+        train_vae(ng_model, dataset, FLAGS)
 
 
 if __name__ == '__main__':

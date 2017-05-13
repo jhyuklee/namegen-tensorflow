@@ -38,7 +38,6 @@ class NameGeneration(object):
         self.inputs_noise = tf.placeholder(tf.float32, [None, self.char_dim])
         self.input_len = tf.placeholder(tf.int32, [None])
         self.decoder_inputs = tf.placeholder(tf.int64, [None, self.max_time_step])
-        self.z = tf.placeholder(tf.float32, [None, self.input_dim])
         self.labels = tf.placeholder(tf.int64, [None])
         self.global_step = tf.Variable(0, name="step", trainable=False)
 
@@ -88,7 +87,7 @@ class NameGeneration(object):
     def encoder(self, inputs, inputs_noise=None, reuse=False):
         """
         Args:
-            inputs: inputs to encode with size [batch_size, time_steps, input_dim]
+            inputs: inputs to encode with size [batch_size, time_steps]
 
         Returns:
             state: hidden state vector of encoder with size [batch_size, cell_dim*2]
@@ -176,6 +175,7 @@ class NameGeneration(object):
                 tf.cast(tf.equal(tf.argmax(cf_logits, 1), self.labels), tf.float32))
 
         # Generator logits
+        self.z = tf.random_normal([tf.shape(self.inputs)[0], self.input_dim], 0, 1)
         if self.conditional:
             h_hat = self.generator(tf.concat([self.z, tf.one_hot(self.labels, self.class_dim)], 1))
             logits_fake = self.discriminator(
