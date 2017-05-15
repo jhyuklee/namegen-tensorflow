@@ -9,7 +9,7 @@ from vae import VAE
 
 
 flags = tf.app.flags
-flags.DEFINE_integer("vae_epoch", 500, "Epoch to train")
+flags.DEFINE_integer("vae_epoch", 300, "Epoch to train")
 flags.DEFINE_integer("ae_epoch", 500, "Epoch to train")
 flags.DEFINE_integer("gan_epoch", 10000, "Epoch to train")
 flags.DEFINE_integer("input_dim", 43, "Data input dimension + PAD, GO, EOS")
@@ -54,6 +54,7 @@ def main(_):
     dataset = get_name_data(FLAGS)
     ng_model = create_model(FLAGS)
     if FLAGS.is_train:
+        # train(ng_model, dataset, FLAGS)
         train_vae(ng_model, dataset, FLAGS)
 
 

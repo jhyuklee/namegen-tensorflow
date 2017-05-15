@@ -35,7 +35,6 @@ class NameGeneration(object):
         self.input_dim = config.input_dim
         self.class_dim = config.class_dim
         self.inputs = tf.placeholder(tf.int64, [None, self.max_time_step])
-        self.inputs_noise = tf.placeholder(tf.float32, [None, self.char_dim])
         self.input_len = tf.placeholder(tf.int32, [None])
         self.decoder_inputs = tf.placeholder(tf.int64, [None, self.max_time_step])
         self.labels = tf.placeholder(tf.int64, [None])
@@ -161,6 +160,7 @@ class NameGeneration(object):
 
     def build_model(self):
         # Autoencoder loss (use inputs_noise optionally)
+        self.inputs_noise = tf.random_normal([None, self.char_dim], 0, 1)
         state = self.encoder(self.inputs, self.inputs_noise)
         self.decoded = self.decoder(self.decoder_inputs,
                 ((tf.zeros_like(state[0][1]), state[0][1]),), feed_prev=True)

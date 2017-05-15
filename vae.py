@@ -59,8 +59,9 @@ class VAE(NameGeneration):
         """
 
         with tf.variable_scope('decoder', reuse=reuse):
+            cell_dim = self.latent_dim + self.class_dim
             # make dummy linear for loop function
-            dummy = linear(inputs=tf.constant(1, tf.float32, [100, self.latent_dim]),
+            dummy = linear(inputs=tf.constant(1, tf.float32, [100, cell_dim]),
                     output_dim=self.input_dim, 
                     scope='rnn_decoder/loop_function/Out', reuse=reuse)
 
@@ -73,12 +74,12 @@ class VAE(NameGeneration):
             else:
                 loop_function = None
 
-            cell = lstm_cell(self.latent_dim, self.cell_layer_num, self.cell_keep_prob)
+            cell = lstm_cell(cell_dim, self.cell_layer_num, self.cell_keep_prob)
             inputs = tf.one_hot(inputs, self.input_dim)
             inputs_t = tf.unstack(tf.transpose(inputs, [1, 0, 2]), self.max_time_step)
             outputs, states = tf.contrib.legacy_seq2seq.rnn_decoder(inputs_t, state, cell, loop_function)
             outputs_t = tf.transpose(tf.stack(outputs), [1, 0, 2])
-            outputs_tr = tf.reshape(outputs_t, [-1, self.latent_dim])
+            outputs_tr = tf.reshape(outputs_t, [-1, cell_dim])
             decoded = linear(inputs=outputs_tr,
                     output_dim=self.input_dim, scope='rnn_decoder/loop_function/Out', reuse=True)
             return decoded
@@ -87,7 +88,8 @@ class VAE(NameGeneration):
         z_mean, z_log_sigma_sq = self.encoder(self.inputs, self.labels, self.input_len)
         eps = tf.random_normal([tf.shape(self.inputs)[0], self.latent_dim], 0, 1)
         self.z = tf.add(z_mean, tf.sqrt(tf.exp(z_log_sigma_sq)) * eps)
-        self.decoded = self.decoder(self.decoder_inputs, ((tf.zeros_like(self.z), self.z),))
+        y_z = tf.concat(axis=1, values=[self.z, tf.one_hot(self.labels, self.class_dim)])
+        self.decoded = self.decoder(self.decoder_inputs, ((tf.zeros_like(y_z), y_z),))
 
         reconstr_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
                 logits=self.decoded, labels=tf.reshape(self.inputs, [-1])))
@@ -98,8 +100,16 @@ class VAE(NameGeneration):
         self.params = tf.trainable_variables()
         vae_vars = [var for var in self.params if 'encoder' in var.name or 'decoder' in var.name]
         self.vae_optimize = tf.train.AdamOptimizer(self.vae_lr).minimize(self.vae_loss, var_list=vae_vars)
+        model_vars = [v for v in tf.global_variables()]
+        self.saver = tf.train.Saver(model_vars)
 
-    def sample(self, c):
-       
-        return None
+    def sample(self, c, num_sample, feed_dict):
+        z = tf.random_normal([num_sample, self.latent_dim], 0, 1)
+        y = tf.tile(tf.expand_dims(tf.one_hot(c, self.class_dim), 0), [num_sample, 1])
+        y_z = tf.concat(axis=1, values=[z, y])
+        decoded = self.decoder(self.decoder_inputs, ((tf.zeros_like(y_z), y_z),), reuse=True)
+        decoded = tf.argmax(tf.reshape(decoded, [num_sample, self.max_time_step, self.input_dim]), 2)
+
+        return self.session.run(decoded, feed_dict=feed_dict)
+        
 

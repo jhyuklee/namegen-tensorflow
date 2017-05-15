@@ -27,14 +27,12 @@ def train(model, dataset, config):
             batch_decoder_inputs = decoder_inputs[datum_idx:datum_idx+batch_size]
             batch_input_len = inputs_length[datum_idx:datum_idx + batch_size]
             batch_labels = labels[datum_idx:datum_idx+batch_size]
-            batch_inputs_noise = np.random.normal(0, 1, (len(batch_inputs), config.char_dim))
                 
             assert len(batch_inputs) == len(batch_input_len) == len(batch_labels) == \
-            len(batch_inputs_noise) == len(batch_decoder_inputs), 'not the same batch size'
+            len(batch_decoder_inputs), 'not the same batch size'
 
             feed_dict = {model.inputs: batch_inputs, model.input_len: batch_input_len, 
-                    model.inputs_noise: batch_inputs_noise, model.labels: batch_labels, 
-                    model.decoder_inputs: batch_decoder_inputs}
+                    model.labels: batch_labels, model.decoder_inputs: batch_decoder_inputs}
             
             if config.train_autoencoder:
                 sess.run(model.ae_optimize, feed_dict=feed_dict)
@@ -80,16 +78,12 @@ def train(model, dataset, config):
             batch_decoder_inputs = decoder_inputs[datum_idx:datum_idx+batch_size]
             batch_input_len = inputs_length[datum_idx:datum_idx + batch_size]
             batch_labels = labels[datum_idx:datum_idx+batch_size]
-
-            batch_z = np.random.normal(0, 1, (len(batch_inputs), config.input_dim))
-            batch_inputs_noise = np.random.normal(0, 1, (len(batch_inputs), config.char_dim))
                 
             assert len(batch_inputs) == len(batch_input_len) == len(batch_labels) == \
             len(batch_z) == len(batch_decoder_inputs), 'not the same batch size'
 
             feed_dict = {model.inputs: batch_inputs, model.input_len: batch_input_len, 
-                    model.z: batch_z, model.labels: batch_labels, model.decoder_inputs:
-                    batch_decoder_inputs, model.inputs_noise: batch_inputs_noise}
+                    model.labels: batch_labels, model.decoder_inputs: batch_decoder_inputs}
 
             for _ in range(d_iter):
                 sess.run(model.d_optimize, feed_dict=feed_dict)
@@ -150,14 +144,12 @@ def train_vae(model, dataset, config):
             batch_decoder_inputs = decoder_inputs[datum_idx:datum_idx+batch_size]
             batch_input_len = inputs_length[datum_idx:datum_idx + batch_size]
             batch_labels = labels[datum_idx:datum_idx+batch_size]
-            batch_inputs_noise = np.random.normal(0, 1, (len(batch_inputs), config.char_dim))
                 
             assert len(batch_inputs) == len(batch_input_len) == len(batch_labels) == \
-            len(batch_inputs_noise) == len(batch_decoder_inputs), 'not the same batch size'
+            len(batch_decoder_inputs), 'not the same batch size'
 
             feed_dict = {model.inputs: batch_inputs, model.input_len: batch_input_len, 
-                    model.inputs_noise: batch_inputs_noise, model.labels: batch_labels, 
-                    model.decoder_inputs: batch_decoder_inputs}
+                    model.labels: batch_labels, model.decoder_inputs: batch_decoder_inputs}
             
             sess.run(model.vae_optimize, feed_dict=feed_dict)
 
@@ -177,7 +169,23 @@ def train_vae(model, dataset, config):
                 sys.stdout.flush()
         print()
 
-    print('Sampling results')
-     
+    print('\nSampling results')
+    num_sample = 100
+    batch_inputs = inputs[0:num_sample]
+    batch_decoder_inputs = decoder_inputs[0:num_sample]
+    batch_input_len = inputs_length[0:num_sample]
+    batch_labels = labels[0:num_sample]
+    feed_dict = {model.inputs: batch_inputs, model.input_len: batch_input_len, 
+            model.labels: batch_labels, model.decoder_inputs: batch_decoder_inputs}
+
+    jap_list = model.sample(country2idx['Japan'], num_sample, feed_dict)
+    fra_list = model.sample(country2idx['France'], num_sample, feed_dict)
+    for sample in jap_list:
+        decoded = ''.join([idx2char[c] for c in sample])
+        if 'PAD' in decoded:
+            print(decoded[:decoded.index('PAD')])
+        else:
+            print(decoded)
 
     model.save(config.checkpoint_dir)
+     

@@ -78,14 +78,13 @@ def get_name_data(config):
                     _progress = progress(k / 1787194) + "Reading %d names... "%(k)
                     sys.stdout.write(_progress)
                     sys.stdout.flush()
-                    if k >= 20000: break
+                    if k >= 200000: break
 
                     raw_name, nationality = line[:-1].split('\t')
                     raw_name = re.sub(r'\ufeff', '', raw_name)    # delete BOM
 
-                    if nationality != 'Republic Of Korea':
-                        # continue
-                        pass
+                    # if nationality != 'Japan':
+                    #     continue
                     
                     name = [char2idx[c] for c in raw_name]
                     decoder_name = np.insert(name[:], 0, GO, axis=0)
