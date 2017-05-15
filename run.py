@@ -55,7 +55,7 @@ def train(model, dataset, config):
                 sys.stdout.flush()
 
         ae_ep = ae_stats['sum'] / ae_stats['cnt']
-        if ae_ep <= 0.010:
+        if ae_ep <= 0.001:
             print('\nAutoencoder Training Done with %.3f loss' % ae_ep)
             break
         else:
@@ -170,22 +170,32 @@ def train_vae(model, dataset, config):
         print()
 
     print('\nSampling results')
-    num_sample = 100
+    num_sample = 10
     batch_inputs = inputs[0:num_sample]
     batch_decoder_inputs = decoder_inputs[0:num_sample]
     batch_input_len = inputs_length[0:num_sample]
     batch_labels = labels[0:num_sample]
-    feed_dict = {model.inputs: batch_inputs, model.input_len: batch_input_len, 
-            model.labels: batch_labels, model.decoder_inputs: batch_decoder_inputs}
+    batch_z = np.random.randn(num_sample, config.latent_dim)
 
-    jap_list = model.sample(country2idx['Japan'], num_sample, feed_dict)
-    fra_list = model.sample(country2idx['France'], num_sample, feed_dict)
-    for sample in jap_list:
-        decoded = ''.join([idx2char[c] for c in sample])
-        if 'PAD' in decoded:
-            print(decoded[:decoded.index('PAD')])
-        else:
-            print(decoded)
+    samples = []
+    nation_list = ['Japan', 'France', 'USSR', 'Italy', 'Great Britain']
+    decoded = model.sample(num_sample)
+    for nation in nation_list:
+        batch_cond = [country2idx[nation]] * num_sample
+        feed_dict = {model.inputs: batch_inputs, model.input_len: batch_input_len, 
+                model.labels: batch_labels, model.decoder_inputs: batch_decoder_inputs, 
+                model.z: batch_z, model.cond: batch_cond}
+        samples.append(sess.run(decoded, feed_dict=feed_dict))
+
+    for results, nation in zip(samples, nation_list):
+        print('[Results of', nation + ']')
+        for sample in results:
+            decoded = ''.join([idx2char[c] for c in sample])
+            if 'PAD' in decoded:
+                print(decoded[:decoded.index('PAD')], end=' / ')
+            else:
+                print(decoded, end=' ')
+        print()
 
     model.save(config.checkpoint_dir)
-     
+ 

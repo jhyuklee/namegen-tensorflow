@@ -103,13 +103,14 @@ class VAE(NameGeneration):
         model_vars = [v for v in tf.global_variables()]
         self.saver = tf.train.Saver(model_vars)
 
-    def sample(self, c, num_sample, feed_dict):
-        z = tf.random_normal([num_sample, self.latent_dim], 0, 1)
-        y = tf.tile(tf.expand_dims(tf.one_hot(c, self.class_dim), 0), [num_sample, 1])
-        y_z = tf.concat(axis=1, values=[z, y])
+    def sample(self, num_sample):
+        self.z = tf.placeholder(tf.float32, [num_sample, self.latent_dim])
+        self.cond = tf.placeholder(tf.int32, [num_sample])
+
+        y = tf.one_hot(self.cond, self.class_dim)
+        y_z = tf.concat(axis=1, values=[self.z, y])
         decoded = self.decoder(self.decoder_inputs, ((tf.zeros_like(y_z), y_z),), reuse=True)
         decoded = tf.argmax(tf.reshape(decoded, [num_sample, self.max_time_step, self.input_dim]), 2)
 
-        return self.session.run(decoded, feed_dict=feed_dict)
-        
+        return decoded
 
